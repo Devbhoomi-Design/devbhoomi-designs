@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -11,18 +10,13 @@ import {
   X,
   Sparkles,
   Heart,
-  Home as HomeIcon,
-  Grid2X2,
-  ClipboardList,
-  User,
 } from "lucide-react";
 
-import { supabase } from "@/app/lib/supabase";
+import { products } from "./products";
 import ProductDetails from "./ProductDetails";
-import type { Product } from "./products";
+import { supabase } from "@/app/lib/supabase";
 
 type CartItem = {
-  cartKey: string;
   id: number;
   quantity: number;
   customName?: string;
@@ -30,6 +24,7 @@ type CartItem = {
   instructions?: string;
 };
 
+type Product = (typeof products)[number];
 
 const categoryIcons: Record<string, string> = {
   "Personalised Art": "✦",
@@ -43,43 +38,10 @@ const categoryIcons: Record<string, string> = {
 };
 
 export default function Home() {
-  const [products, setProducts] = useState<Product[]>([]);
-const [productsLoading, setProductsLoading] = useState(true);
+  const [user, setUser] = useState<{ email?: string; user_metadata?: { full_name?: string } } | null>(null);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
-
-  useEffect(() => {
-  const loadProducts = async () => {
-    const { data, error } = await supabase
-      .from("products")
-      .select("*")
-      .order("id", { ascending: true });
-
-    if (error) {
-  console.error("Error loading products:", error);
-  setProducts([]);
-} else {
-  const formattedProducts: Product[] = (data || []).map((item) => ({
-    id: item.id,
-    name: item.name,
-    category: item.category,
-    price: item.price,
-    originalPrice: item.original_price,
-    description: item.description || "",
-    badge: item.badge || undefined,
-    customizable: item.customizable ?? false,
-    image: item.image || "",
-  }));
-
-  setProducts(formattedProducts);
-}
-
-    setProductsLoading(false);
-  };
-
-  loadProducts();
-}, []);
 
   // Product opened in the product-details popup.
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -99,6 +61,56 @@ const [productsLoading, setProductsLoading] = useState(true);
   const [customSize, setCustomSize] = useState("Small");
   const [customDescription, setCustomDescription] = useState("");
 
+  // =====================================================
+// AUTH STATE
+// =====================================================
+useEffect(() => {
+  let mounted = true;
+
+  // Get the current logged-in session
+  const loadSession = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (mounted) {
+      setUser(session?.user ?? null);
+    }
+  };
+
+  loadSession();
+
+  // Listen for login/logout changes
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((event, session) => {
+    console.log("Auth event:", event);
+    console.log("User:", session?.user?.email);
+
+    if (mounted) {
+      setUser(session?.user ?? null);
+    }
+  });
+
+  return () => {
+    mounted = false;
+    subscription.unsubscribe();
+  };
+}, []);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+
+    if (error) {
+      console.error("Logout error:", error);
+      alert("Could not log out. Please try again.");
+      return;
+    }
+
+    setUser(null);
+    window.location.href = "/";
+  };
+
   const categories = [
     "All",
     ...Array.from(new Set(products.map((product) => product.category))),
@@ -116,9 +128,9 @@ const [productsLoading, setProductsLoading] = useState(true);
 
       return matchesSearch && matchesCategory;
     });
-}, [products, search, selectedCategory]);
+  }, [search, selectedCategory]);
 
- const addToCart = (
+  const addToCart = (
   id: number,
   customization?: {
     customName?: string;
@@ -127,108 +139,65 @@ const [productsLoading, setProductsLoading] = useState(true);
   }
 ) => {
   setCart((current) => {
-    const customName = customization?.customName || "";
-    const customSize = customization?.customSize || "";
-    const instructions = customization?.instructions || "";
-
-    const cartKey = `${id}-${customName}-${customSize}-${instructions}`;
-
     const existing = current.find(
-      (item) => item.cartKey === cartKey
+      (item) =>
+        item.id === id &&
+        item.customName === customization?.customName &&
+        item.customSize === customization?.customSize &&
+        item.instructions === customization?.instructions
     );
 
-    let updatedCart;
-
     if (existing) {
-      updatedCart = current.map((item) =>
-        item.cartKey === cartKey
+      return current.map((item) =>
+        item === existing
           ? {
               ...item,
               quantity: item.quantity + 1,
             }
           : item
       );
-    } else {
-      updatedCart = [
-        ...current,
-        {
-          id,
-          quantity: 1,
-          cartKey,
-          customName,
-          customSize,
-          instructions,
-        },
-      ];
     }
 
-    localStorage.setItem(
-      "devbhoomi-cart",
-      JSON.stringify(updatedCart)
-    );
-
-    return updatedCart;
+    return [
+      ...current,
+      {
+        id,
+        quantity: 1,
+        customName: customization?.customName,
+        customSize: customization?.customSize,
+        instructions: customization?.instructions,
+      },
+    ];
   });
 
   setCartOpen(true);
 };
 
- const increaseQuantity = (cartKey: string) => {
-  setCart((current) => {
-    const updatedCart = current.map((item) =>
-      item.cartKey === cartKey
-        ? {
-            ...item,
-            quantity: item.quantity + 1,
-          }
-        : item
-    );
-
-    localStorage.setItem(
-      "devbhoomi-cart",
-      JSON.stringify(updatedCart)
-    );
-
-    return updatedCart;
-  });
-};
-
-  const decreaseQuantity = (cartKey: string) => {
-  setCart((current) => {
-    const updatedCart = current
-      .map((item) =>
-        item.cartKey === cartKey
-          ? {
-              ...item,
-              quantity: Math.max(0, item.quantity - 1),
-            }
+  const increaseQuantity = (id: number) => {
+    setCart((current) =>
+      current.map((item) =>
+        item.id === id
+          ? { ...item, quantity: item.quantity + 1 }
           : item
       )
-      .filter((item) => item.quantity > 0);
-
-    localStorage.setItem(
-      "devbhoomi-cart",
-      JSON.stringify(updatedCart)
     );
+  };
 
-    return updatedCart;
-  });
-};
-
-  const removeFromCart = (cartKey: string) => {
-  setCart((current) => {
-    const updatedCart = current.filter(
-      (item) => item.cartKey !== cartKey
+  const decreaseQuantity = (id: number) => {
+    setCart((current) =>
+      current
+        .map((item) =>
+          item.id === id
+            ? { ...item, quantity: item.quantity - 1 }
+            : item
+        )
+        .filter((item) => item.quantity > 0)
     );
+  };
 
-    localStorage.setItem(
-      "devbhoomi-cart",
-      JSON.stringify(updatedCart)
-    );
-
-    return updatedCart;
-  });
-};
+  const removeFromCart = (id: number) => {
+    setCart((current) => current.filter((item) => item.id !== id));
+  };
 
   const cartProducts = cart
     .map((item) => {
@@ -238,22 +207,10 @@ const [productsLoading, setProductsLoading] = useState(true);
 
       return {
         ...product,
-        cartKey: item.cartKey,
         quantity: item.quantity,
-        customName: item.customName,
-        customSize: item.customSize,
-        instructions: item.instructions,
       };
     })
-    .filter(Boolean) as Array<
-    Product & {
-      cartKey: string;
-      quantity: number;
-      customName?: string;
-      customSize?: string;
-      instructions?: string;
-    }
-  >;
+    .filter(Boolean) as (Product & { quantity: number })[];
 
   const cartCount = cart.reduce(
     (total, item) => total + item.quantity,
@@ -290,25 +247,8 @@ const [productsLoading, setProductsLoading] = useState(true);
     }
   };
 
-  if (productsLoading) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#fffaf4]">
-      <div className="text-center">
-        <div className="text-5xl">🎨</div>
-        <h2 className="mt-4 text-2xl font-black text-[#321817]">
-          Loading Devbhoomi Designs...
-        </h2>
-        <p className="mt-2 text-[#795c52]">
-          Please wait while we load our collection.
-        </p>
-      </div>
-    </main>
-  );
-}
-
-return (
-  <main className="min-h-screen bg-[#fffaf4] text-[#351717]">
-
+    <main className="min-h-screen bg-[#fffaf4] text-[#351717]">
       {/* NAVBAR */}
       <header className="sticky top-0 z-40 border-b border-[#ead8c7] bg-[#fffaf4]/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
@@ -377,97 +317,37 @@ return (
               )}
             </button>
 
-            <button
-  type="button"
-  onClick={() => (window.location.href = "/login")}
-  className="rounded-full bg-[#a51c24] px-5 py-3 font-bold text-white transition hover:bg-[#85161d]"
->
-  Login
-</button>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <span className="hidden max-w-[180px] truncate text-sm font-bold text-[#795c52] sm:block">
+                  {user.user_metadata?.full_name || user.email}
+                </span>
 
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="rounded-full bg-[#a51c24] px-5 py-3 font-bold text-white transition hover:bg-[#85161d]"
+                >
+                  Sign Out
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.href = "/login";
+                }}
+                className="rounded-full bg-[#a51c24] px-5 py-3 font-bold text-white transition hover:bg-[#85161d]"
+              >
+                Login
+              </button>
+            )}
           </div>
         </div>
       </header>
 
-      <div className="sticky top-[81px] z-30 border-b border-[#ead8c7] bg-[#fffaf4] px-3 py-2 md:hidden">
-        <div className="flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-xl border border-[#dcc8b5] bg-white px-3 py-2.5 shadow-sm">
-            <Search size={17} className="shrink-0 text-[#795c52]" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search for Aipan, gifts..."
-              className="ml-2 min-w-0 flex-1 bg-transparent text-sm outline-none"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setCartOpen(true)}
-            className="relative rounded-xl bg-[#a51c24] p-3 text-white shadow-sm"
-            aria-label="Open cart"
-          >
-            <ShoppingBag size={19} />
-            {cartCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#ffd99c] text-[10px] font-black text-[#571719]">
-                {cartCount}
-              </span>
-            )}
-          </button>
-        </div>
-        <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-[#795c52]">
-          <span>📍</span>
-          <span>Delivering across India</span>
-          <span className="ml-auto text-[#a51c24]">Haldwani, Uttarakhand</span>
-        </div>
-      </div>
-
-      <div className="sticky top-[143px] z-20 border-b border-[#ead8c7] bg-[#fffaf4] md:hidden">
-        <div className="flex gap-2 overflow-x-auto px-3 py-2.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {categories.map((category) => (
-            <button
-              key={category}
-              type="button"
-              onClick={() => setSelectedCategory(category)}
-              className={`flex shrink-0 items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold ${
-                selectedCategory === category
-                  ? "bg-[#a51c24] text-white"
-                  : "border border-[#dcc8b5] bg-white text-[#351717]"
-              }`}
-            >
-              <span>{categoryIcons[category] || "✦"}</span>
-              {category}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* MOBILE SHOPPING BANNER */}
-      <section className="mx-3 mt-3 overflow-hidden rounded-2xl bg-[#a51c24] text-white shadow-sm md:hidden">
-        <div className="flex items-center justify-between gap-3 px-4 py-4">
-          <div>
-            <p className="text-[10px] font-bold tracking-[0.2em] text-[#ffd99c]">
-              HANDMADE • UTTARAKHAND
-            </p>
-            <h2 className="mt-1 text-lg font-black leading-tight">
-              A piece of Devbhoomi
-              <br />
-              for your home.
-            </h2>
-            <a
-              href="#shop"
-              className="mt-3 inline-flex rounded-full bg-[#ffd99c] px-4 py-2 text-xs font-black text-[#571719]"
-            >
-              Shop Now
-            </a>
-          </div>
-          <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-[#ffd99c] text-5xl text-[#ffd99c]">
-            ॐ
-          </div>
-        </div>
-      </section>
-
       {/* HERO */}
-      <section className="relative hidden overflow-hidden bg-[#a51c24] text-white md:block">
+      <section className="relative overflow-hidden bg-[#a51c24] text-white">
         <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full border-[40px] border-[#d94b2b]/40" />
 
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-20 md:grid-cols-2">
@@ -530,9 +410,9 @@ return (
       </section>
 
       {/* CATEGORY */}
-      <section className="mx-auto hidden max-w-7xl px-5 py-12 md:block">
+      <section className="mx-auto max-w-7xl px-5 py-12">
         <div className="mb-7">
-          <p className="text-[10px] font-black tracking-[0.2em] text-[#a51c24] md:text-sm md:tracking-[0.25em]">
+          <p className="text-sm font-bold tracking-[0.25em] text-[#a51c24]">
             EXPLORE
           </p>
 
@@ -559,96 +439,86 @@ return (
       </section>
 
       {/* SHOP */}
-      <section id="shop" className="mx-auto max-w-7xl px-3 pb-24 pt-4 sm:px-5 md:pb-20 md:pt-0">
-        <div className="mb-4 flex items-end justify-between md:mb-8">
+      <section id="shop" className="mx-auto max-w-7xl px-5 pb-20">
+        <div className="mb-8 flex items-end justify-between">
           <div>
             <p className="text-sm font-bold tracking-[0.25em] text-[#a51c24]">
               THE COLLECTION
             </p>
 
-            <h2 className="mt-1 text-xl font-black md:mt-2 md:text-4xl">
+            <h2 className="mt-2 text-4xl font-black">
               Handmade favourites
             </h2>
           </div>
 
-          <span className="text-xs font-semibold text-[#795c52] sm:text-sm">
+          <span className="hidden text-sm text-[#795c52] sm:block">
             {filteredProducts.length} products
           </span>
         </div>
 
-<div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {filteredProducts.map((product) => (
             <article
               key={product.id}
-              className="group overflow-hidden rounded-xl border border-[#ead8c7] bg-white shadow-sm md:rounded-2xl"
->
-              <div className="relative aspect-[4/3] flex items-center justify-center overflow-hidden bg-[#fff8f2] md:aspect-square">
-                {product.image ? (
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                  />
-                ) : (
-                  <>
-                    <div className="absolute inset-4 rounded-2xl border-2 border-[#ffd99c]/50 md:inset-5" />
-                    <div className="absolute inset-8 rounded-full border border-[#ffd99c]/40 md:inset-10" />
+              className="group overflow-hidden rounded-3xl border border-[#ead8c7] bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-xl"
+            >
+              <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-[#9e2025]">
+                <div className="absolute inset-5 rounded-2xl border-2 border-[#ffd99c]/50" />
+                <div className="absolute inset-10 rounded-full border border-[#ffd99c]/40" />
 
-                    <div className="relative text-center">
-                      <div className="text-4xl text-[#ffd99c] md:text-6xl">
-                        {categoryIcons[product.category] || "✦"}
-                      </div>
+                <div className="relative text-center">
+                  <div className="text-6xl text-[#ffd99c]">
+                    {categoryIcons[product.category] || "✦"}
+                  </div>
 
-                      <div className="mt-2 text-[9px] font-bold tracking-[0.25em] text-[#a56c58] md:mt-4 md:text-xs">
-                        DEVBHOOMI
-                      </div>
-                    </div>
-                  </>
-                )}
+                  <div className="mt-4 text-xs font-bold tracking-[0.3em] text-white/80">
+                    DEVBHOOMI
+                  </div>
+                </div>
 
                 {product.badge && (
-                  <span className="absolute left-2 top-2 rounded-full bg-[#ffd99c] px-2 py-1 text-[9px] font-bold text-[#571719] md:left-4 md:top-4 md:px-3 md:text-xs">
+                  <span className="absolute left-4 top-4 rounded-full bg-[#ffd99c] px-3 py-1 text-xs font-bold text-[#571719]">
                     {product.badge}
                   </span>
                 )}
 
                 <button
                   type="button"
-                  className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 md:right-4 md:top-4 md:p-2"
+                  className="absolute right-4 top-4 rounded-full bg-white/90 p-2"
                 >
                   <Heart size={17} />
                 </button>
               </div>
 
-              <div className="p-2.5 md:p-5">
-                <p className="text-[9px] font-bold uppercase tracking-wide text-[#a56c58] md:text-xs md:tracking-wider">
+              <div className="p-5">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">
                   {product.category}
                 </p>
 
-                <h3 className="mt-1 min-h-[40px] text-[13px] font-bold leading-5 md:mt-2 md:min-h-[52px] md:text-lg md:leading-normal">
+                <h3 className="mt-2 min-h-[52px] text-lg font-bold">
                   {product.name}
                 </h3>
 
                 <button
                   type="button"
                   onClick={() => setSelectedProduct(product)}
-                  className="mt-1 text-[11px] font-bold text-[#a51c24] underline underline-offset-4 md:mt-2 md:text-sm"
+                  className="mt-2 text-sm font-bold text-[#a51c24] underline underline-offset-4"
                 >
                   View Details
                 </button>
 
-                <div className="mt-2 flex items-center gap-1.5 md:mt-4 md:gap-2">
-                  <span className="text-[15px] font-black md:text-xl">
-₹{Number(product.price).toLocaleString("en-IN")}
+                <div className="mt-4 flex items-center gap-2">
+                  <span className="text-xl font-black">
+                    ₹{product.price.toLocaleString("en-IN")}
                   </span>
 
-                  <span className="text-[9px] text-gray-400 line-through md:text-sm">
-  ₹{Number(product.originalPrice).toLocaleString("en-IN")}
-</span>
+                  <span className="text-sm text-gray-400 line-through">
+                    ₹{product.originalPrice.toLocaleString("en-IN")}
+                  </span>
                 </div>
 
                 {product.customizable && (
-                  <div className="mt-2 flex items-center gap-1 text-[9px] font-semibold text-[#a51c24] md:mt-3 md:gap-2 md:text-xs">
+                  <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#a51c24]">
                     <Sparkles size={14} />
                     Customisable
                   </div>
@@ -658,7 +528,7 @@ return (
                   <button
                     type="button"
                     onClick={() => openCustomize(product)}
-                    className="mt-2 w-full rounded-lg border border-[#b51c24] px-2 py-2 text-[9px] font-bold text-[#b51c24] transition hover:bg-[#b51c24] hover:text-white md:mt-3 md:rounded-full md:px-5 md:py-3 md:text-sm"
+                    className="mt-3 w-full rounded-full border border-[#b51c24] px-5 py-3 text-sm font-bold text-[#b51c24] transition hover:bg-[#b51c24] hover:text-white"
                   >
                     ✨ Customize This Product
                   </button>
@@ -667,7 +537,7 @@ return (
                 <button
                   type="button"
                   onClick={() => addToCart(product.id)}
-                  className="mt-2.5 flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#351717] px-2 py-2.5 text-[11px] font-bold text-white transition hover:bg-[#a51c24] md:mt-5 md:rounded-full md:gap-2 md:px-4 md:py-3 md:text-base"
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#351717] px-4 py-3 font-bold text-white transition hover:bg-[#a51c24]"
                 >
                   <ShoppingBag size={17} />
                   Add to Cart
@@ -871,28 +741,16 @@ return (
               {/* SUBMIT */}
               <button
                 type="button"
-                onClick={() => {
-                  if (!customProduct) {
-                    alert("Please select a product first.");
-                    return;
-                  }
-
-                  addToCart(customProduct.id, {
-                    customName: customName.trim() || undefined,
-                    customSize,
-                    instructions: customDescription.trim() || undefined,
-                  });
-
+                onClick={() =>
                   alert(
-                    `Thank you! Your custom request for ${customProduct.name} has been added to your cart.`
-                  );
-
-                  setCustomName("");
-                  setCustomDescription("");
-                }}
+                    `Thank you! Your custom request for ${
+                      customProduct?.name || customType
+                    } has been captured.`
+                  )
+                }
                 className="w-full rounded-full bg-[#8f151d] px-6 py-4 text-lg font-bold text-white transition hover:bg-[#701018]"
               >
-                ✦ Add Custom Request to Cart
+                ✦ Send Custom Request
               </button>
 
               <p className="mt-4 text-center text-xs text-[#765850]">
@@ -1038,7 +896,7 @@ return (
                 <div className="space-y-5">
                   {cartProducts.map((product) => (
                     <div
-                      key={product.cartKey}
+                      key={product.id}
                       className="rounded-2xl border border-[#ead8c7] bg-white p-4"
                     >
                       <div className="flex gap-4">
@@ -1052,7 +910,7 @@ return (
                           </h3>
 
                           <p className="mt-1 font-black">
-                         ₹{Number(product.price).toLocaleString("en-IN")}
+                            ₹{product.price.toLocaleString("en-IN")}
                           </p>
 
                           <div className="mt-3 flex items-center justify-between">
@@ -1060,7 +918,7 @@ return (
                               <button
                                 type="button"
                                 onClick={() =>
-                                decreaseQuantity(product.cartKey)
+                                  decreaseQuantity(product.id)
                                 }
                                 className="p-2"
                               >
@@ -1074,7 +932,7 @@ return (
                               <button
                                 type="button"
                                 onClick={() =>
-                              increaseQuantity(product.cartKey)
+                                  increaseQuantity(product.id)
                                 }
                                 className="p-2"
                               >
@@ -1085,7 +943,7 @@ return (
                             <button
                               type="button"
                               onClick={() =>
-                                removeFromCart(product.cartKey)
+                                removeFromCart(product.id)
                               }
                               className="text-[#a51c24]"
                             >
@@ -1111,9 +969,6 @@ return (
 
                 <button
                   type="button"
-                  onClick={() => {
-  window.location.href = "/checkout";
-}} 
                   className="mt-5 w-full rounded-full bg-[#a51c24] py-4 font-bold text-white transition hover:bg-[#85161d]"
                 >
                   Proceed to Checkout
@@ -1131,36 +986,14 @@ return (
       {/* PRODUCT DETAILS */}
       {selectedProduct && (
         <ProductDetails
-          product={selectedProduct}
-          onClose={() => setSelectedProduct(null)}
-          onAddToCart={addToCart}
-        />
+  product={selectedProduct}
+  onClose={() => setSelectedProduct(null)}
+  onAddToCart={(id) => {
+    addToCart(id);
+    setCartOpen(true);
+  }}
+/>
       )}
-
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ead8c7] bg-white/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_18px_rgba(53,23,23,0.08)] backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-5">
-          <a href="#" className="flex flex-col items-center gap-1 py-1 text-[10px] font-bold text-[#a51c24]">
-            <HomeIcon size={20} /> Home
-          </a>
-          <a href="#shop" className="flex flex-col items-center gap-1 py-1 text-[10px] font-semibold text-[#795c52]">
-            <Grid2X2 size={20} /> Categories
-          </a>
-          <button type="button" onClick={() => setCartOpen(true)} className="relative flex flex-col items-center gap-1 py-1 text-[10px] font-semibold text-[#795c52]">
-            <ShoppingBag size={20} /> Cart
-            {cartCount > 0 && (
-              <span className="absolute left-1/2 top-0 ml-1 flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded-full bg-[#a51c24] px-1 text-[9px] font-black text-white">
-                {cartCount}
-              </span>
-            )}
-          </button>
-          <a href="/my-orders" className="flex flex-col items-center gap-1 py-1 text-[10px] font-semibold text-[#795c52]">
-            <ClipboardList size={20} /> Orders
-          </a>
-          <button type="button" onClick={() => alert("Login page coming next.")} className="flex flex-col items-center gap-1 py-1 text-[10px] font-semibold text-[#795c52]">
-            <User size={20} /> Account
-          </button>
-        </div>
-      </nav>
     </main>
   );
 }
