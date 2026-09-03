@@ -64,15 +64,34 @@ export default function AdminOrdersPage() {
         return;
       }
 
-      // Admin email
-      const ADMIN_EMAIL = "vishal2131gupta@gmail.com";
+      // Check admin access from Supabase
+const userEmail = user.email?.trim().toLowerCase();
 
-      // Check admin access
-      if (user.email !== ADMIN_EMAIL) {
-        alert("You are not authorized to access the admin dashboard.");
-        router.replace("/");
-        return;
-      }
+console.log("LOGGED IN USER:", userEmail);
+
+const { data: admins, error: adminError } = await supabase
+  .from("admins")
+  .select("email");
+
+if (adminError) {
+  console.error("Error checking admin access:", adminError);
+  alert("Could not verify admin access.");
+  router.replace("/");
+  return;
+}
+
+const isAdmin = admins?.some(
+  (admin) => admin.email?.trim().toLowerCase() === userEmail
+);
+
+console.log("ADMIN ACCESS:", isAdmin);
+console.log("ADMIN EMAILS:", admins);
+
+if (!isAdmin) {
+  alert(`Not authorized.\nLogged in as: ${userEmail}`);
+  router.replace("/");
+  return;
+}
 
       // Load orders only after admin verification
       const { data, error } = await supabase
