@@ -65,7 +65,7 @@ export default function AdminOrdersPage() {
       }
 
       // Admin email
-      const ADMIN_EMAIL = "YOUR_ADMIN_EMAIL@gmail.com";
+      const ADMIN_EMAIL = "vishal2131gupta@gmail.com";
 
       // Check admin access
       if (user.email !== ADMIN_EMAIL) {
