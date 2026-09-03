@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+
 import { supabase } from "@/app/lib/supabase";
 import { ArrowLeft, Mail, Lock, User } from "lucide-react";
 
 export default function LoginPage() {
+
   const [isSignup, setIsSignup] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -52,11 +54,20 @@ export default function LoginPage() {
 
         if (error) throw error;
 
-        window.location.href = "/";
-      }
-    } catch (error: any) {
-      setMessage(error.message || "Something went wrong.");
-    } finally {
+const next =
+  new URLSearchParams(window.location.search).get("next") || "/";
+
+window.location.href = next;
+}
+    } catch (error) {
+  const message =
+    error instanceof Error
+      ? error.message
+      : "Something went wrong.";
+
+  setMessage(message);
+}
+      finally {
       setLoading(false);
     }
   };

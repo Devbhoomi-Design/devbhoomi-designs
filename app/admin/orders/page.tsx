@@ -53,6 +53,28 @@ export default function AdminOrdersPage() {
   useEffect(() => {
   const loadOrders = async () => {
     try {
+      // Check if user is logged in
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      // Not logged in → go to login
+      if (!user) {
+        router.replace("/login?next=/admin/orders");
+        return;
+      }
+
+      // Admin email
+      const ADMIN_EMAIL = "YOUR_ADMIN_EMAIL@gmail.com";
+
+      // Check admin access
+      if (user.email !== ADMIN_EMAIL) {
+        alert("You are not authorized to access the admin dashboard.");
+        router.replace("/");
+        return;
+      }
+
+      // Load orders only after admin verification
       const { data, error } = await supabase
         .from("orders")
         .select("*")
@@ -61,7 +83,6 @@ export default function AdminOrdersPage() {
       if (error) {
         console.error("Error loading orders:", error);
         setOrders([]);
-        setLoaded(true);
         return;
       }
 
@@ -92,7 +113,7 @@ export default function AdminOrdersPage() {
   };
 
   loadOrders();
-}, []);
+}, [router]);
 
   // =====================================================
   // UPDATE STATUS
