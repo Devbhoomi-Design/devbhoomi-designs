@@ -65,9 +65,8 @@ export default function AdminOrdersPage() {
       }
 
       // Check admin access from Supabase
-const userEmail = user.email?.trim().toLowerCase();
 
-console.log("LOGGED IN USER:", userEmail);
+      const userEmail = user.email?.trim().toLowerCase();
 
 const { data: admins, error: adminError } = await supabase
   .from("admins")
@@ -84,12 +83,13 @@ const isAdmin = admins?.some(
   (admin) => admin.email?.trim().toLowerCase() === userEmail
 );
 
+console.log("LOGGED IN USER:", userEmail);
 console.log("ADMIN ACCESS:", isAdmin);
 console.log("ADMIN EMAILS:", admins);
 
 if (!isAdmin) {
-  alert(`Not authorized.\nLogged in as: ${userEmail}`);
-  router.replace("/");
+  await supabase.auth.signOut();
+  router.replace("/login?next=/admin/orders");
   return;
 }
 
