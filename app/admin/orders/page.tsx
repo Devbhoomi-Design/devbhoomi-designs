@@ -144,30 +144,36 @@ if (!isAdmin) {
   status: OrderStatus
 ) => {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("orders")
       .update({
         status: status,
         updated_at: new Date().toISOString(),
       })
-      .eq("order_id", orderId);
+      .eq("order_id", orderId)
+      .select("order_id, status")
+      .single();
 
     if (error) {
-      console.error("Error updating order:", error);
-      alert("Could not update order status.");
+      console.error("STATUS UPDATE ERROR:", error);
+      alert(`Could not update order status: ${error.message}`);
       return;
     }
+
+    console.log("STATUS SAVED TO DATABASE:", data);
 
     setOrders((currentOrders) =>
       currentOrders.map((order) =>
         order.orderId === orderId
-          ? { ...order, status: status }
+          ? { ...order, status: data.status as OrderStatus }
           : order
       )
     );
+
+    alert(`Order status updated to "${status}"`);
   } catch (error) {
-    console.error("Unexpected error:", error);
-    alert("Something went wrong.");
+    console.error("Unexpected status update error:", error);
+    alert("Something went wrong while updating the order.");
   }
 };
 

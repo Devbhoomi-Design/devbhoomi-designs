@@ -8,6 +8,7 @@ const links = [
   { href: "/", label: "🏠 Home" },
   { href: "/admin/products", label: "📦 Products" },
   { href: "/admin/orders", label: "🛒 Orders" },
+  { href: "/admin/custom-requests", label: "🎨 Custom Requests" },
 ];
 
 export default function AdminNav() {
