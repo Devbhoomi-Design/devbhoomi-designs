@@ -87,6 +87,9 @@ export default function Home() {
   const [customName, setCustomName] = useState("");
   const [customSize, setCustomSize] = useState("Small");
   const [customDescription, setCustomDescription] = useState("");
+  const [customReferenceImage, setCustomReferenceImage] =
+    useState<File | null>(null);
+  const [sendingCustomRequest, setSendingCustomRequest] = useState(false);
 
   // =====================================================
   // AUTH + ADMIN STATE
@@ -378,6 +381,111 @@ export default function Home() {
     } else {
       setCustomProduct(null);
       setCustomType(value);
+    }
+  };
+
+  const submitCustomRequest = async () => {
+    if (!customType) {
+      alert("Please select what you would like.");
+      return;
+    }
+
+    if (!customDescription.trim()) {
+      alert("Please describe your idea.");
+      return;
+    }
+
+    const {
+      data: { user: currentUser },
+    } = await supabase.auth.getUser();
+
+    if (!currentUser) {
+      window.location.href = `/login?next=${encodeURIComponent("/#custom")}`;
+      return;
+    }
+
+    setSendingCustomRequest(true);
+
+    try {
+      let referenceImageUrl: string | null = null;
+
+      if (customReferenceImage) {
+        if (!customReferenceImage.type.startsWith("image/")) {
+          throw new Error("Please upload an image file.");
+        }
+
+        if (customReferenceImage.size > 5 * 1024 * 1024) {
+          throw new Error("Please choose an image smaller than 5 MB.");
+        }
+
+        const extension =
+          customReferenceImage.name.split(".").pop()?.toLowerCase() || "jpg";
+        const filePath = `${currentUser.id}/${crypto.randomUUID()}.${extension}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("custom-requests")
+          .upload(filePath, customReferenceImage, {
+            contentType: customReferenceImage.type,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error("Custom reference upload error:", uploadError);
+          throw new Error(
+            `Could not upload the reference image: ${uploadError.message}`
+          );
+        }
+
+        const { data: publicUrlData } = supabase.storage
+          .from("custom-requests")
+          .getPublicUrl(filePath);
+
+        referenceImageUrl = publicUrlData.publicUrl;
+      }
+
+      const { error: requestError } = await supabase
+        .from("custom_requests")
+        .insert({
+          user_id: currentUser.id,
+          customer_name:
+            currentUser.user_metadata?.full_name ||
+            currentUser.email?.split("@")[0] ||
+            "",
+          customer_email: currentUser.email || "",
+          product_name: customProduct?.name || customType,
+          custom_name: customName.trim() || null,
+          preferred_size: customSize,
+          description: customDescription.trim(),
+          reference_image_url: referenceImageUrl,
+          status: "New Request",
+        });
+
+      if (requestError) {
+        console.error("Custom request save error:", requestError);
+        throw new Error(
+          `Could not save your custom request: ${requestError.message}`
+        );
+      }
+
+      alert(
+        "Thank you! Your custom request has been submitted successfully."
+      );
+
+      setCustomName("");
+      setCustomSize("Small");
+      setCustomDescription("");
+      setCustomReferenceImage(null);
+      setCustomProduct(null);
+      setCustomType("Personalised Aipan Nameplate");
+    } catch (error) {
+      console.error("Custom request error:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Could not submit your custom request. Please try again."
+      );
+    } finally {
+      setSendingCustomRequest(false);
     }
   };
 
@@ -880,8 +988,26 @@ export default function Home() {
                 <input
                   type="file"
                   accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+
+                    if (file && file.size > 5 * 1024 * 1024) {
+                      alert("Please choose an image smaller than 5 MB.");
+                      e.target.value = "";
+                      setCustomReferenceImage(null);
+                      return;
+                    }
+
+                    setCustomReferenceImage(file);
+                  }}
                   className="w-full rounded-xl border border-dashed border-[#c49b83] bg-white p-4 text-sm"
                 />
+
+                {customReferenceImage && (
+                  <p className="mt-2 text-sm font-semibold text-green-700">
+                    ✓ {customReferenceImage.name}
+                  </p>
+                )}
 
                 <p className="mt-2 text-xs text-[#765850]">
                   Optional — upload an image or design reference.
@@ -891,16 +1017,13 @@ export default function Home() {
               {/* SUBMIT */}
               <button
                 type="button"
-                onClick={() =>
-                  alert(
-                    `Thank you! Your custom request for ${
-                      customProduct?.name || customType
-                    } has been captured.`
-                  )
-                }
-                className="w-full rounded-full bg-[#8f151d] px-6 py-4 text-lg font-bold text-white transition hover:bg-[#701018]"
+                disabled={sendingCustomRequest}
+                onClick={submitCustomRequest}
+                className="w-full rounded-full bg-[#8f151d] px-6 py-4 text-lg font-bold text-white transition hover:bg-[#701018] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                ✦ Send Custom Request
+                {sendingCustomRequest
+                  ? "Sending Request..."
+                  : "✦ Send Custom Request"}
               </button>
 
               <p className="mt-4 text-center text-xs text-[#765850]">
