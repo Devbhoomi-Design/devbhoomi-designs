@@ -46,6 +46,8 @@ export default function Home() {
   const [isAdmin, setIsAdmin] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [storeProducts, setStoreProducts] = useState<Product[]>(products);
+  const [productsLoading, setProductsLoading] = useState(true);
   const [cartOpen, setCartOpen] = useState(false);
 
   // Load the saved cart when the browser is ready.
@@ -169,6 +171,52 @@ export default function Home() {
     };
   }, []);
 
+  // Load the live product catalogue from Supabase.
+  // The local products.ts list remains only as a fallback if Supabase
+  // is temporarily unavailable or the table has no products.
+  useEffect(() => {
+    let mounted = true;
+
+    const loadProducts = async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("*")
+        .order("id", { ascending: true });
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error("Could not load products from Supabase:", error);
+        setProductsLoading(false);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const formattedProducts: Product[] = data.map((product) => ({
+          id: Number(product.id),
+          name: product.name,
+          category: product.category,
+          price: Number(product.price),
+          originalPrice: Number(product.original_price ?? product.price),
+          description: product.description ?? "",
+          badge: product.badge ?? undefined,
+          customizable: Boolean(product.customizable),
+          image: product.image ?? "",
+        }));
+
+        setStoreProducts(formattedProducts);
+      }
+
+      setProductsLoading(false);
+    };
+
+    void loadProducts();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
 
@@ -184,11 +232,11 @@ export default function Home() {
 
   const categories = [
     "All",
-    ...Array.from(new Set(products.map((product) => product.category))),
+    ...Array.from(new Set(storeProducts.map((product) => product.category))),
   ];
 
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
+    return storeProducts.filter((product) => {
       const matchesSearch =
         product.name.toLowerCase().includes(search.toLowerCase()) ||
         product.category.toLowerCase().includes(search.toLowerCase());
@@ -199,7 +247,7 @@ export default function Home() {
 
       return matchesSearch && matchesCategory;
     });
-  }, [search, selectedCategory]);
+  }, [search, selectedCategory, storeProducts]);
 
   const addToCart = (
   id: number,
@@ -287,7 +335,7 @@ export default function Home() {
 
   const cartProducts = cart
     .map((item) => {
-      const product = products.find((product) => product.id === item.id);
+      const product = storeProducts.find((product) => product.id === item.id);
 
       if (!product) return null;
 
@@ -322,7 +370,7 @@ export default function Home() {
   };
 
   const handleCustomTypeChange = (value: string) => {
-    const product = products.find((item) => item.name === value);
+    const product = storeProducts.find((item) => item.name === value);
 
     if (product) {
       setCustomProduct(product);
@@ -760,7 +808,7 @@ export default function Home() {
                 >
                   <option value="">Select a product</option>
 
-                  {products
+                  {storeProducts
                     .filter((product) => product.customizable)
                     .map((product) => (
                       <option key={product.id} value={product.name}>
