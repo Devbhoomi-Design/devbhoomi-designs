@@ -13,6 +13,7 @@ type Product = {
   badge: string | null;
   customizable: boolean;
   image: string | null;
+  in_stock: boolean;
 };
 
 const emptyProduct = {
@@ -24,6 +25,7 @@ const emptyProduct = {
   badge: "",
   customizable: false,
   image: "",
+  in_stock: true,
 };
 
 export default function AdminProductsPage() {
@@ -132,6 +134,7 @@ export default function AdminProductsPage() {
       badge: form.badge.trim() || null,
       customizable: form.customizable,
       image: form.image.trim() || null,
+      in_stock: form.in_stock,
       updated_at: new Date().toISOString(),
     };
 
@@ -190,6 +193,7 @@ export default function AdminProductsPage() {
       badge: product.badge || "",
       customizable: product.customizable,
       image: product.image || "",
+      in_stock: product.in_stock ?? true,
     });
 
     window.scrollTo({
@@ -421,6 +425,21 @@ export default function AdminProductsPage() {
               </span>
             </label>
 
+            {/* STOCK STATUS */}
+            <label className="flex cursor-pointer items-center gap-3">
+              <input
+                type="checkbox"
+                name="in_stock"
+                checked={form.in_stock}
+                onChange={handleChange}
+                className="h-5 w-5"
+              />
+
+              <span className="font-bold text-[#321817]">
+                Product is in stock
+              </span>
+            </label>
+
             {/* SUBMIT */}
             <div className="flex justify-end md:col-span-2">
               <button
@@ -505,6 +524,52 @@ export default function AdminProductsPage() {
                   <p className="mt-3 line-clamp-3 text-sm leading-6 text-[#795c52]">
                     {product.description}
                   </p>
+
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-black ${
+                        product.in_stock
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {product.in_stock ? "✓ In Stock" : "✕ Out of Stock"}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const nextStock = !product.in_stock;
+
+                        const { data, error } = await supabase
+                          .from("products")
+                          .update({
+                            in_stock: nextStock,
+                            updated_at: new Date().toISOString(),
+                          })
+                          .eq("id", product.id)
+                          .select()
+                          .single();
+
+                        if (error) {
+                          console.error("Stock update error:", error);
+                          alert(
+                            `Could not update stock status: ${error.message}`
+                          );
+                          return;
+                        }
+
+                        setProducts((current) =>
+                          current.map((item) =>
+                            item.id === product.id ? data : item
+                          )
+                        );
+                      }}
+                      className="rounded-full border border-[#dcc8b5] px-4 py-2 text-xs font-bold text-[#321817] hover:bg-[#f7eadc]"
+                    >
+                      {product.in_stock ? "Mark Out of Stock" : "Mark In Stock"}
+                    </button>
+                  </div>
 
                   {/* ACTIONS */}
                   <div className="mt-5 flex gap-3">
