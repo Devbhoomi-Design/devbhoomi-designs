@@ -1107,36 +1107,76 @@ export default function Home() {
 
       {/* FOOTER */}
       <footer className="bg-[#351717] px-5 py-12 text-white">
-        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-3">
+        <div className="mx-auto grid max-w-7xl gap-10 md:grid-cols-4">
           <div>
-            <h3 className="text-2xl font-black">
-              Devbhoomi Designs
-            </h3>
-
-            <p className="mt-3 text-sm leading-6 text-white/60">
-              Traditional Aipan art and personalised creations from
-              Uttarakhand.
+            <h3 className="text-2xl font-black">Devbhoomi Designs</h3>
+            <p className="mt-3 max-w-sm text-sm leading-6 text-white/60">
+              Traditional Aipan art and personalised creations from Uttarakhand.
             </p>
+            <a
+              href="https://wa.me/917409724257"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-5 inline-flex rounded-full bg-[#25D366] px-5 py-3 text-sm font-bold text-white transition hover:opacity-90"
+            >
+              WhatsApp Us
+            </a>
           </div>
 
           <div>
             <h4 className="font-bold">Contact</h4>
+            <p className="mt-3 text-sm text-white/60">Haldwani, Uttarakhand</p>
+            <p className="mt-1 text-sm text-white/60">devbhoomidesigns@gmail.com</p>
+            <a
+              href="https://wa.me/917409724257"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 block text-sm text-white/70 transition hover:text-white"
+            >
+              WhatsApp: +91 74097 24257
+            </a>
+          </div>
 
-            <p className="mt-3 text-sm text-white/60">
-              Haldwani, Uttarakhand
-            </p>
-
-            <p className="mt-1 text-sm text-white/60">
-              devbhoomidesigns@gmail.com
-            </p>
+          <div>
+            <h4 className="font-bold">Quick Links</h4>
+            <div className="mt-3 flex flex-col gap-2 text-sm text-white/60">
+              <Link href="/privacy" className="transition hover:text-white">Privacy Policy</Link>
+              <Link href="/terms" className="transition hover:text-white">Terms & Conditions</Link>
+              <Link href="/shipping" className="transition hover:text-white">Shipping Policy</Link>
+              <Link href="/refund" className="transition hover:text-white">Refund Policy</Link>
+              <Link href="/contact" className="transition hover:text-white">Contact Us</Link>
+              <Link href="/faq" className="transition hover:text-white">FAQ</Link>
+            </div>
           </div>
 
           <div>
             <h4 className="font-bold">Follow Devbhoomi</h4>
-
-            <p className="mt-3 text-sm text-white/60">
-              Instagram • YouTube • Facebook
-            </p>
+            <div className="mt-3 flex flex-col gap-2 text-sm text-white/60">
+              <a
+                href="https://www.instagram.com/devbhoomi_designs?igsi=dWNod2U2MmM4Mmpp"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition hover:text-white"
+              >
+                Instagram
+              </a>
+              <a
+                href="https://www.facebook.com/profile.php?id=61565126644260"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition hover:text-white"
+              >
+                Facebook
+              </a>
+              <a
+                href="https://youtube.com/@devbhoomi_designs?si=ghMAhwN2C7x4BqA4"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition hover:text-white"
+              >
+                YouTube
+              </a>
+            </div>
           </div>
         </div>
 
@@ -1144,6 +1184,17 @@ export default function Home() {
           © 2026 Devbhoomi Designs • Made with love in Uttarakhand
         </div>
       </footer>
+
+      {/* WHATSAPP FLOATING BUTTON */}
+      <a
+        href="https://wa.me/917409724257"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Chat with Devbhoomi Designs on WhatsApp"
+        className="fixed bottom-5 right-5 z-40 rounded-full bg-[#25D366] px-5 py-3 text-sm font-bold text-white shadow-xl transition hover:scale-105 hover:opacity-90"
+      >
+        WhatsApp
+      </a>
 
       {/* CART DRAWER */}
       {cartOpen && (
