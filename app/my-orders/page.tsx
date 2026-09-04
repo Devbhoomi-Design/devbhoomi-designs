@@ -87,7 +87,32 @@ export default function MyOrdersPage() {
       void loadOrders();
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    // Keep the customer order status in sync with the admin dashboard.
+    const channel = supabase
+      .channel("customer-order-status")
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "orders",
+        },
+        () => {
+          void loadOrders();
+        }
+      )
+      .subscribe();
+
+    // Fallback refresh in case Realtime is not enabled for the orders table.
+    const refreshTimer = window.setInterval(() => {
+      void loadOrders();
+    }, 15000);
+
+    return () => {
+      window.clearTimeout(timer);
+      window.clearInterval(refreshTimer);
+      void supabase.removeChannel(channel);
+    };
   }, []);
 
   if (loading) {
