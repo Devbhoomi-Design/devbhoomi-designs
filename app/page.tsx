@@ -1,6 +1,8 @@
 "use client";
+import AdminNav from "./components/AdminNav";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   ShoppingBag,
@@ -38,10 +40,33 @@ const categoryIcons: Record<string, string> = {
 };
 
 export default function Home() {
+  const router = useRouter();
+
   const [user, setUser] = useState<{ email?: string; user_metadata?: { full_name?: string } } | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
+
+  // Load the saved cart when the browser is ready.
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      try {
+        const savedCart = localStorage.getItem("devbhoomi-cart");
+
+        if (savedCart) {
+          const parsedCart = JSON.parse(savedCart);
+          if (Array.isArray(parsedCart)) {
+            setCart(parsedCart);
+          }
+        }
+      } catch (error) {
+        console.error("Could not load cart:", error);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, []);
 
   // Product opened in the product-details popup.
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -62,41 +87,87 @@ export default function Home() {
   const [customDescription, setCustomDescription] = useState("");
 
   // =====================================================
-// AUTH STATE
-// =====================================================
-useEffect(() => {
-  let mounted = true;
+  // AUTH + ADMIN STATE
+  // =====================================================
+  useEffect(() => {
+    let mounted = true;
 
-  // Get the current logged-in session
-  const loadSession = async () => {
+    const checkUserAndAdmin = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      const currentUser = session?.user ?? null;
+      setUser(currentUser);
+
+      if (!currentUser?.email) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data: admin, error } = await supabase
+        .from("admins")
+        .select("email")
+        .eq("email", currentUser.email)
+        .maybeSingle();
+
+      if (!mounted) return;
+
+      if (error) {
+        console.error("Could not check admin access:", error);
+        setIsAdmin(false);
+        return;
+      }
+
+      setIsAdmin(!!admin);
+    };
+
+    const timer = window.setTimeout(() => {
+      void checkUserAndAdmin();
+    }, 0);
+
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const currentUser = session?.user ?? null;
 
-    if (mounted) {
-      setUser(session?.user ?? null);
-    }
-  };
+      window.setTimeout(() => {
+        if (!mounted) return;
 
-  loadSession();
+        setUser(currentUser);
 
-  // Listen for login/logout changes
-  const {
-    data: { subscription },
-  } = supabase.auth.onAuthStateChange((event, session) => {
-    console.log("Auth event:", event);
-    console.log("User:", session?.user?.email);
+        if (!currentUser?.email) {
+          setIsAdmin(false);
+          return;
+        }
 
-    if (mounted) {
-      setUser(session?.user ?? null);
-    }
-  });
+        void supabase
+          .from("admins")
+          .select("email")
+          .eq("email", currentUser.email)
+          .maybeSingle()
+          .then(({ data, error }) => {
+            if (!mounted) return;
 
-  return () => {
-    mounted = false;
-    subscription.unsubscribe();
-  };
-}, []);
+            if (error) {
+              console.error("Could not check admin access:", error);
+              setIsAdmin(false);
+              return;
+            }
+
+            setIsAdmin(!!data);
+          });
+      }, 0);
+    });
+
+    return () => {
+      mounted = false;
+      window.clearTimeout(timer);
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleLogout = async () => {
     const { error } = await supabase.auth.signOut();
@@ -147,8 +218,10 @@ useEffect(() => {
         item.instructions === customization?.instructions
     );
 
+    let updatedCart: CartItem[];
+
     if (existing) {
-      return current.map((item) =>
+      updatedCart = current.map((item) =>
         item === existing
           ? {
               ...item,
@@ -156,47 +229,60 @@ useEffect(() => {
             }
           : item
       );
+    } else {
+      updatedCart = [
+        ...current,
+        {
+          id,
+          quantity: 1,
+          customName: customization?.customName,
+          customSize: customization?.customSize,
+          instructions: customization?.instructions,
+        },
+      ];
     }
 
-    return [
-      ...current,
-      {
-        id,
-        quantity: 1,
-        customName: customization?.customName,
-        customSize: customization?.customSize,
-        instructions: customization?.instructions,
-      },
-    ];
+    localStorage.setItem("devbhoomi-cart", JSON.stringify(updatedCart));
+    return updatedCart;
   });
 
   setCartOpen(true);
 };
 
   const increaseQuantity = (id: number) => {
-    setCart((current) =>
-      current.map((item) =>
+    setCart((current) => {
+      const updatedCart = current.map((item) =>
         item.id === id
           ? { ...item, quantity: item.quantity + 1 }
           : item
-      )
-    );
+      );
+
+      localStorage.setItem("devbhoomi-cart", JSON.stringify(updatedCart));
+      return updatedCart;
+    });
   };
 
   const decreaseQuantity = (id: number) => {
-    setCart((current) =>
-      current
+    setCart((current) => {
+      const updatedCart = current
         .map((item) =>
           item.id === id
             ? { ...item, quantity: item.quantity - 1 }
             : item
         )
-        .filter((item) => item.quantity > 0)
-    );
+        .filter((item) => item.quantity > 0);
+
+      localStorage.setItem("devbhoomi-cart", JSON.stringify(updatedCart));
+      return updatedCart;
+    });
   };
 
   const removeFromCart = (id: number) => {
-    setCart((current) => current.filter((item) => item.id !== id));
+    setCart((current) => {
+      const updatedCart = current.filter((item) => item.id !== id);
+      localStorage.setItem("devbhoomi-cart", JSON.stringify(updatedCart));
+      return updatedCart;
+    });
   };
 
   const cartProducts = cart
@@ -249,6 +335,12 @@ useEffect(() => {
 
   return (
     <main className="min-h-screen bg-[#fffaf4] text-[#351717]">
+      {user && isAdmin && (
+        <div className="mx-auto max-w-7xl px-5 pt-4">
+          <AdminNav />
+        </div>
+      )}
+
       {/* NAVBAR */}
       <header className="sticky top-0 z-40 border-b border-[#ead8c7] bg-[#fffaf4]/95 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
@@ -305,8 +397,10 @@ useEffect(() => {
             </div>
 
             <button
+              type="button"
               onClick={() => setCartOpen(true)}
               className="relative rounded-full border border-[#dcc8b5] bg-white p-3 transition hover:scale-105"
+              aria-label="Open cart"
             >
               <ShoppingBag size={20} />
 
@@ -315,6 +409,14 @@ useEffect(() => {
                   {cartCount}
                 </span>
               )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => router.push("/my-orders")}
+              className="hidden rounded-full border border-[#dcc8b5] bg-white px-4 py-2 text-sm font-bold text-[#321817] transition hover:border-[#a51c24] hover:text-[#a51c24] md:block"
+            >
+              📦 My Orders
             </button>
 
             {user ? (
@@ -969,9 +1071,18 @@ useEffect(() => {
 
                 <button
                   type="button"
+                  onClick={() => router.push("/checkout")}
                   className="mt-5 w-full rounded-full bg-[#a51c24] py-4 font-bold text-white transition hover:bg-[#85161d]"
                 >
                   Proceed to Checkout
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/my-orders")}
+                  className="mt-3 w-full rounded-full border border-[#a51c24] py-3 font-bold text-[#a51c24] transition hover:bg-[#fff1ed]"
+                >
+                  📦 My Orders
                 </button>
 
                 <p className="mt-3 text-center text-xs text-[#795c52]">

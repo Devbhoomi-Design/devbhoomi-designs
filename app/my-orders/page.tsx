@@ -1,217 +1,251 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { products } from "../products";
+import { supabase } from "@/app/lib/supabase";
+
+type OrderItem = {
+  id: number;
+  quantity: number;
+  cartKey?: string;
+  customName?: string;
+  customSize?: string;
+  instructions?: string;
+};
 
 type Order = {
-  orderId: string;
-  customer: {
-    name: string;
-    phone: string;
-    address: string;
-    city: string;
-    pincode: string;
-  };
-  items: {
-    id: number;
-    quantity: number;
-  }[];
+  order_id: string;
+  customer_name: string;
+  customer_city: string;
+  customer_pincode: string;
+  items: OrderItem[];
   total: number;
-  createdAt: string;
+  status: string;
+  created_at: string;
 };
+
+const statuses = [
+  "New Order",
+  "Confirmed",
+  "Processing",
+  "Shipped",
+  "Out for Delivery",
+  "Delivered",
+];
 
 export default function MyOrdersPage() {
   const router = useRouter();
-  const [orders] = useState<Order[]>(() => {
-  if (typeof window === "undefined") {
-    return [];
-  }
 
-  const savedOrder =
-  localStorage.getItem("devbhoomi_order") ||
-  localStorage.getItem("devbhoomi-last-order");
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState("");
+  const [, startTransition] = useTransition();
 
-  if (!savedOrder) {
-    return [];
-  }
+  const loadOrders = async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  try {
-    const order = JSON.parse(savedOrder);
-    return [order];
-  } catch {
-    return [];
-  }
-});
+    if (!user) {
+      router.replace("/login?next=/my-orders");
+      return;
+    }
 
-  return (
-    <main className="min-h-screen bg-[#fffaf4] px-5 py-12">
-      <div className="mx-auto max-w-4xl">
+    startTransition(() => {
+      setEmail(user.email || "");
+    });
 
-        <button
-          onClick={() => router.push("/")}
-          className="mb-8 font-bold text-[#a51c24]"
-        >
-          ← Back to Store
-        </button>
+    const { data, error } = await supabase.rpc("get_my_orders");
 
-        <div className="mb-8">
-          <p className="text-sm font-bold tracking-[0.2em] text-[#a51c24]">
-            DEVBHOOMI DESIGNS
-          </p>
+    if (error) {
+      console.error("My orders error:", error);
 
-          <h1 className="mt-2 text-4xl font-black text-[#321817]">
-            My Orders
-          </h1>
+      startTransition(() => {
+        setOrders([]);
+        setLoading(false);
+      });
 
-          <p className="mt-2 text-[#795c52]">
-            View your orders and track their delivery status.
-          </p>
-        </div>
+      return;
+    }
 
-        {orders.length === 0 ? (
-          <div className="rounded-3xl border border-[#ead8c7] bg-white p-12 text-center shadow-sm">
-            <div className="text-5xl">📦</div>
+    const formattedOrders: Order[] = (data || []).map((row: Order) => ({
+      ...row,
+      items: Array.isArray(row.items) ? row.items : [],
+      total: Number(row.total || 0),
+      status: row.status || "New Order",
+    }));
 
-            <h2 className="mt-5 text-2xl font-black text-[#321817]">
-              No Orders Yet
-            </h2>
+    startTransition(() => {
+      setOrders(formattedOrders);
+      setLoading(false);
+    });
+  };
 
-            <p className="mt-2 text-[#795c52]">
-              You have not placed any orders yet.
-            </p>
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void loadOrders();
+    }, 0);
 
-            <button
-              onClick={() => router.push("/")}
-              className="mt-6 rounded-full bg-[#a51c24] px-8 py-3 font-bold text-white"
-            >
-              Start Shopping
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-5">
-            {orders.map((order) => (
-              <div
-                key={order.orderId}
-                className="rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm"
-              >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    return () => window.clearTimeout(timer);
+  }, []);
 
-                  <div>
-                    <p className="text-sm text-[#795c52]">
-                      Order ID
-                    </p>
-
-                    <p className="mt-1 text-xl font-black text-[#a51c24]">
-                      {order.orderId}
-                    </p>
-
-                    <p className="mt-2 text-sm text-[#795c52]">
-                      {new Date(order.createdAt).toLocaleString("en-IN")}
-                    </p>
-                  </div>
-
-                  <div className="sm:text-right">
-                    <p className="text-sm text-[#795c52]">
-                      Total
-                    </p>
-
-                    <p className="text-xl font-black text-[#321817]">
-                      ₹{order.total.toLocaleString("en-IN")}
-                    </p>
-                  </div>
-
-                </div>
-
-                <div className="mt-5 border-t border-[#ead8c7] pt-5">
-
-                  {order.items.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between rounded-2xl bg-[#fffaf4] p-4"
-                    >
-                      <div>
-                        {(() => {
-  const product = products.find((p) => p.id === item.id);
-
-  if (!product) {
+  if (loading) {
     return (
-      <p className="font-bold text-[#321817]">
-        Product #{item.id}
-      </p>
+      <main className="flex min-h-screen items-center justify-center bg-[#fffaf4]">
+        <div className="text-center">
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#ead8c7] border-t-[#a51c24]" />
+          <p className="mt-4 font-bold">Loading your orders...</p>
+        </div>
+      </main>
     );
   }
 
   return (
-    <div className="flex items-center gap-4">
-      <img
-        src={product.image}
-        alt={product.name}
-        className="h-20 w-20 rounded-xl object-cover"
-      />
+    <main className="min-h-screen bg-[#fffaf4] px-5 py-10 text-[#321817]">
+      <div className="mx-auto max-w-5xl">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <Link href="/" className="text-sm font-bold text-[#a51c24]">
+              ← Home
+            </Link>
 
-      <div>
-        <p className="text-xs font-bold uppercase tracking-wide text-[#a51c24]">
-          {product.category}
-        </p>
+            <h1 className="mt-3 text-4xl font-black">Your Orders</h1>
 
-        <p className="mt-1 font-bold text-[#321817]">
-          {product.name}
-        </p>
+            <p className="mt-2 text-sm text-[#795c52]">{email}</p>
+          </div>
 
-        <p className="mt-1 text-sm text-[#795c52]">
-          ₹{product.price.toLocaleString("en-IN")}
-        </p>
+          <Link
+            href="/"
+            className="rounded-2xl bg-[#a51c24] px-5 py-3 text-center font-black text-white"
+          >
+            Continue Shopping
+          </Link>
+        </div>
 
-        <p className="mt-1 text-sm text-[#795c52]">
-          Quantity: {item.quantity}
-        </p>
-      </div>
-    </div>
-  );
-})()}
+        {orders.length === 0 ? (
+          <div className="mt-10 rounded-3xl border border-[#ead8c7] bg-white p-12 text-center shadow-sm">
+            <div className="text-6xl">📦</div>
 
-                        <p className="mt-1 text-sm text-[#795c52]">
-                          Quantity: {item.quantity}
-                        </p>
-                      </div>
+            <h2 className="mt-5 text-2xl font-black">No orders yet</h2>
 
-                      <span className="font-bold text-green-600">
-                        Confirmed
-                      </span>
+            <p className="mt-2 text-[#795c52]">
+              Your placed orders will appear here.
+            </p>
+
+            <Link
+              href="/"
+              className="mt-6 inline-block rounded-full bg-[#a51c24] px-6 py-3 font-bold text-white"
+            >
+              Start Shopping
+            </Link>
+          </div>
+        ) : (
+          <div className="mt-8 space-y-6">
+            {orders.map((order) => {
+              const statusIndex = statuses.indexOf(order.status);
+              const currentIndex = statusIndex >= 0 ? statusIndex : 0;
+
+              return (
+                <article
+                  key={order.order_id}
+                  className="rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm"
+                >
+                  <div className="flex flex-col gap-3 border-b border-[#ead8c7] pb-5 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-black uppercase tracking-wider text-[#a56c58]">
+                        Order
+                      </p>
+
+                      <h2 className="mt-1 break-all font-black text-[#a51c24]">
+                        {order.order_id}
+                      </h2>
+
+                      <p className="mt-1 text-sm text-[#795c52]">
+                        {new Date(order.created_at).toLocaleString("en-IN")}
+                      </p>
                     </div>
-                  ))}
 
-                </div>
+                    <div className="rounded-full bg-[#f7eadc] px-4 py-2 text-sm font-black text-[#a51c24]">
+                      {order.status}
+                    </div>
+                  </div>
 
-                <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                  <div className="mt-5">
+                    {order.items.map((item, index) => (
+                      <div
+                        key={`${item.id}-${item.cartKey || index}`}
+                        className="flex items-center justify-between border-b border-[#f0e3d8] py-3 last:border-0"
+                      >
+                        <div>
+                          <p className="font-bold">
+                            Product #{item.id}
+                            {item.customName ? ` — ${item.customName}` : ""}
+                          </p>
 
-                  <button
-                    onClick={() =>
-                      router.push(
-                        `/track-order?orderId=${encodeURIComponent(
-                          order.orderId
-                        )}`
-                      )
-                    }
-                    className="flex-1 rounded-full bg-[#a51c24] px-6 py-3 font-bold text-white"
+                          <p className="text-sm text-[#795c52]">
+                            Qty: {item.quantity}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-5 flex items-center justify-between">
+                    <span className="font-black">Total</span>
+
+                    <span className="text-xl font-black text-[#a51c24]">
+                      ₹{order.total.toLocaleString("en-IN")}
+                    </span>
+                  </div>
+
+                  <div className="mt-6">
+                    <div className="flex justify-between gap-1">
+                      {statuses.map((status, index) => (
+                        <div
+                          key={status}
+                          className="flex flex-1 flex-col items-center"
+                        >
+                          <div
+                            className={`h-3 w-3 rounded-full ${
+                              index <= currentIndex
+                                ? "bg-[#a51c24]"
+                                : "bg-[#dcc8b5]"
+                            }`}
+                          />
+
+                          <span className="mt-2 hidden text-center text-[10px] font-bold sm:block">
+                            {status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-2 h-1 rounded-full bg-[#ead8c7]">
+                      <div
+                        className="h-1 rounded-full bg-[#a51c24] transition-all"
+                        style={{
+                          width: `${
+                            (currentIndex / (statuses.length - 1)) * 100
+                          }%`,
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <Link
+                    href={`/track-order?orderId=${encodeURIComponent(
+                      order.order_id
+                    )}`}
+                    className="mt-6 block rounded-2xl border border-[#a51c24] px-5 py-3 text-center font-black text-[#a51c24] hover:bg-[#fff1ed]"
                   >
-                    Track Order
-                  </button>
-
-                  <button
-                    onClick={() => router.push("/")}
-                    className="flex-1 rounded-full border border-[#a51c24] px-6 py-3 font-bold text-[#a51c24]"
-                  >
-                    Continue Shopping
-                  </button>
-
-                </div>
-              </div>
-            ))}
+                    View & Track Order
+                  </Link>
+                </article>
+              );
+            })}
           </div>
         )}
-
       </div>
     </main>
   );

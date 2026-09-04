@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import AdminNav from "@/app/components/AdminNav";
 import { supabase } from "@/app/lib/supabase";
 
 type OrderStatus =
@@ -174,22 +175,34 @@ if (!isAdmin) {
   // DELETE ORDER
   // =====================================================
 
-  const deleteOrder = (orderId: string) => {
+  const deleteOrder = async (orderId: string) => {
     const confirmed = window.confirm(
-      "Are you sure you want to delete this order?"
+      "Are you sure you want to permanently delete this order?"
     );
 
     if (!confirmed) {
       return;
     }
 
-    const updatedOrders = orders.filter(
-      (order) => order.orderId !== orderId
-    );
+    try {
+      const { error } = await supabase
+        .from("orders")
+        .delete()
+        .eq("order_id", orderId);
 
-    setOrders(updatedOrders);
+      if (error) {
+        console.error("Error deleting order:", error);
+        alert("Could not delete order. Please check your database permissions.");
+        return;
+      }
 
-    localStorage.removeItem("devbhoomi-last-order");
+      setOrders((currentOrders) =>
+        currentOrders.filter((order) => order.orderId !== orderId)
+      );
+    } catch (error) {
+      console.error("Unexpected error:", error);
+      alert("Something went wrong while deleting the order.");
+    }
   };
 
   // =====================================================
@@ -295,6 +308,9 @@ if (!isAdmin) {
     <main className="min-h-screen bg-[#fffaf4] px-5 py-8 md:px-8">
 
       <div className="mx-auto max-w-7xl">
+        <AdminNav />
+
+        <div className="mt-6">
 
         {/* =================================================
             HEADER
@@ -799,6 +815,7 @@ if (!isAdmin) {
 
         </section>
 
+        </div>
       </div>
     </main>
   );

@@ -32,10 +32,41 @@ export default function AdminProductsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [, setAuthorized] = useState(false);
 
-  // LOAD PRODUCTS
+  // CHECK ADMIN ACCESS, THEN LOAD PRODUCTS
   useEffect(() => {
-    const loadProducts = async () => {
+    const initializePage = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      if (!user?.email) {
+        window.location.href = "/login?next=/admin/products";
+        return;
+      }
+
+      const email = user.email.trim().toLowerCase();
+
+      const { data: admin, error: adminError } = await supabase
+        .from("admins")
+        .select("email")
+        .eq("email", email)
+        .maybeSingle();
+
+      if (adminError) {
+        console.error("Admin check error:", adminError);
+        alert("Could not verify admin access.");
+        window.location.href = "/";
+        return;
+      }
+
+      if (!admin) {
+        alert("You are not authorized to access the admin panel.");
+        window.location.href = "/";
+        return;
+      }
+
+      setAuthorized(true);
+
       const { data, error } = await supabase
         .from("products")
         .select("*")
@@ -43,6 +74,7 @@ export default function AdminProductsPage() {
 
       if (error) {
         console.error("Error loading products:", error);
+        alert("Could not load products.");
       } else {
         setProducts(data || []);
       }
@@ -50,7 +82,7 @@ export default function AdminProductsPage() {
       setLoading(false);
     };
 
-    loadProducts();
+    initializePage();
   }, []);
 
   // HANDLE INPUT
@@ -103,7 +135,7 @@ export default function AdminProductsPage() {
       updated_at: new Date().toISOString(),
     };
 
-    if (editingId) {
+    if (editingId !== null) {
       const { data, error } = await supabase
         .from("products")
         .update(productData)
@@ -225,16 +257,33 @@ export default function AdminProductsPage() {
           <p className="mt-2 text-[#795c52]">
             Add, edit and manage your products.
           </p>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => (window.location.href = "/admin/orders")}
+              className="rounded-full border border-[#a51c24] px-5 py-2 font-bold text-[#a51c24]"
+            >
+              📦 Manage Orders
+            </button>
+            <button
+              type="button"
+              onClick={() => (window.location.href = "/")}
+              className="rounded-full bg-[#a51c24] px-5 py-2 font-bold text-white"
+            >
+              🏠 View Store
+            </button>
+          </div>
         </div>
 
         {/* PRODUCT FORM */}
         <section className="rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black text-[#321817]">
-              {editingId ? "Edit Product" : "Add New Product"}
+              {editingId !== null ? "Edit Product" : "Add New Product"}
             </h2>
 
-            {editingId && (
+            {editingId !== null && (
               <button
                 type="button"
                 onClick={resetForm}

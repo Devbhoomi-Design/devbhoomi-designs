@@ -1,40 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { products } from "../products";
-import { supabase } from "../lib/supabase";
+import { FormEvent, useEffect, useState } from "react";
+import Link from "next/link";
+import { supabase } from "@/app/lib/supabase";
 
 type OrderItem = {
   id: number;
   quantity: number;
+  cartKey?: string;
   customName?: string;
   customSize?: string;
   instructions?: string;
 };
 
-type Order = {
-  orderId: string;
-
-  customer: {
-    name: string;
-    phone: string;
-    address: string;
-    city: string;
-    pincode: string;
-  };
-
+type TrackedOrder = {
+  order_id: string;
+  customer_name: string;
+  customer_phone: string;
+  customer_city: string;
+  customer_pincode: string;
   items: OrderItem[];
-
+  subtotal: number;
+  delivery: number;
   total: number;
-
-  createdAt: string;
-
-  status?: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
 };
 
-const trackingSteps = [
-  "Order Received",
+const statuses = [
+  "New Order",
   "Confirmed",
   "Processing",
   "Shipped",
@@ -43,602 +38,284 @@ const trackingSteps = [
 ];
 
 export default function TrackOrderPage() {
-  const router = useRouter();
+  const [orderId, setOrderId] = useState("");
+  const [phone, setPhone] = useState("");
+  const [order, setOrder] = useState<TrackedOrder | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState("");
 
-  const [order, setOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
+  const findOrder = async (event?: FormEvent) => {
+    event?.preventDefault();
 
-  
- useEffect(() => {
-  const loadOrder = async () => {
+    const cleanOrderId = orderId.trim();
+    const cleanPhone = phone.trim();
+
+    if (!cleanOrderId) {
+      setMessage("Please enter your Order ID.");
+      setOrder(null);
+      return;
+    }
+
+    if (!/^[6-9]\d{9}$/.test(cleanPhone)) {
+      setMessage("Please enter a valid 10-digit mobile number.");
+      setOrder(null);
+      return;
+    }
+
+    setLoading(true);
+    setMessage("");
+    setOrder(null);
+
     try {
-      const savedOrder = localStorage.getItem("devbhoomi-last-order");
-
-      // If we have a local order, use its ID
-      if (savedOrder) {
-        const localOrder = JSON.parse(savedOrder) as Order;
-
-        const { data, error } = await supabase
-          .from("orders")
-          .select("*")
-          .eq("order_id", localOrder.orderId)
-          .single();
-
-        if (error) {
-          console.error("Supabase error:", error);
-          setOrder(localOrder);
-          setLoading(false);
-          return;
-        }
-
-        if (data) {
-          const updatedOrder: Order = {
-            orderId: data.order_id,
-            customer: {
-              name: data.customer_name,
-              phone: data.customer_phone,
-              address: data.customer_address,
-              city: data.customer_city,
-              pincode: data.customer_pincode,
-            },
-            items: data.items || [],
-            total: Number(data.total || 0),
-            createdAt: data.created_at,
-            status: data.status || "New Order",
-          };
-
-          setOrder(updatedOrder);
-
-          localStorage.setItem(
-            "devbhoomi-last-order",
-            JSON.stringify(updatedOrder)
-          );
-        }
-
-        setLoading(false);
-        return;
-      }
-
-      // No local order — get latest order from Supabase
-      const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+      const { data, error } = await supabase.rpc("track_order", {
+        p_order_id: cleanOrderId,
+        p_phone: cleanPhone,
+      });
 
       if (error) {
-        console.error("Could not load latest order:", error);
-        setOrder(null);
-        setLoading(false);
+        console.error("Track order error:", error);
+        setMessage("Unable to find this order. Please check your Order ID and mobile number.");
         return;
       }
 
-      if (data) {
-        const newOrder: Order = {
-          orderId: data.order_id,
-          customer: {
-            name: data.customer_name,
-            phone: data.customer_phone,
-            address: data.customer_address,
-            city: data.customer_city,
-            pincode: data.customer_pincode,
-          },
-          items: data.items || [],
-          total: Number(data.total || 0),
-          createdAt: data.created_at,
-          status: data.status || "New Order",
-        };
+      const found = Array.isArray(data) ? data[0] : data;
 
-        setOrder(newOrder);
-
-        localStorage.setItem(
-          "devbhoomi-last-order",
-          JSON.stringify(newOrder)
-        );
+      if (!found) {
+        setMessage("No order found. Please check your Order ID and mobile number.");
+        return;
       }
+
+      setOrder({
+        ...found,
+        items: Array.isArray(found.items) ? found.items : [],
+        subtotal: Number(found.subtotal || 0),
+        delivery: Number(found.delivery || 0),
+        total: Number(found.total || 0),
+      });
     } catch (error) {
-      console.error("Unable to load order:", error);
-      setOrder(null);
+      console.error("Unexpected tracking error:", error);
+      setMessage("Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  loadOrder();
-}, []);
+  // Automatically refresh the live status every 20 seconds.
+  useEffect(() => {
+    if (!order) return;
 
+    const timer = window.setInterval(() => {
+      void findOrder();
+    }, 20000);
 
+    return () => window.clearInterval(timer);
+  }, [order, orderId, phone]);
 
-  /*
-    Convert the order status into a tracking step.
+  const currentIndex = order
+    ? Math.max(0, statuses.indexOf(order.status))
+    : -1;
 
-    For now, newly placed orders start at:
-    Order Received
-
-    Later, when we connect the admin panel to Supabase,
-    the admin will be able to change the status.
-  */
-  const getCurrentStep = () => {
-    if (!order?.status) {
-      return 0;
-    }
-
-    const status = order.status.toLowerCase();
-
-    if (status.includes("delivered")) {
-      return 5;
-    }
-
-    if (status.includes("out")) {
-      return 4;
-    }
-
-    if (status.includes("shipped")) {
-      return 3;
-    }
-
-    if (status.includes("processing")) {
-      return 2;
-    }
-
-    if (status.includes("confirm")) {
-      return 1;
-    }
-
-    return 0;
-  };
-
-  const currentStep = getCurrentStep();
-
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#fffaf4]">
-        <p className="font-bold text-[#321817]">
-          Loading your order...
-        </p>
-      </main>
-    );
-  }
-
-  if (!order) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#fffaf4] px-5">
-        <div className="w-full max-w-lg rounded-3xl border border-[#ead8c7] bg-white p-10 text-center shadow-sm">
-          <div className="text-5xl">📦</div>
-
-          <h1 className="mt-5 text-3xl font-black text-[#321817]">
-            No Order Found
-          </h1>
-
-          <p className="mt-3 text-[#795c52]">
-            We could not find your latest order on this device.
-          </p>
-
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="mt-7 rounded-full bg-[#a51c24] px-8 py-3 font-bold text-white transition hover:bg-[#85161d]"
-          >
-            Back to Store
-          </button>
-        </div>
-      </main>
-    );
-  }
+  const formattedDate = order
+    ? new Date(order.created_at).toLocaleString("en-IN", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : "";
 
   return (
-    <main className="min-h-screen bg-[#fffaf4] px-5 py-12 md:px-8">
+    <main className="min-h-screen bg-[#fffaf4] px-5 py-10 text-[#321817]">
+      <div className="mx-auto max-w-4xl">
+        <Link
+          href="/"
+          className="inline-block text-sm font-bold text-[#a51c24]"
+        >
+          ← Back to Home
+        </Link>
 
-      <div className="mx-auto max-w-5xl">
-
-        {/* HEADER */}
-
-        <div className="text-center">
-
-          <p className="text-sm font-bold tracking-[0.2em] text-[#a51c24]">
-            DEVBHOOMI DESIGNS
+        <div className="mt-6 text-center">
+          <p className="text-sm font-black uppercase tracking-[0.25em] text-[#a56c58]">
+            Devbhoomi Designs
           </p>
-
-          <h1 className="mt-3 text-4xl font-black text-[#321817] md:text-5xl">
+          <h1 className="mt-2 text-4xl font-black md:text-5xl">
             Track Your Order
           </h1>
-
           <p className="mx-auto mt-3 max-w-xl text-[#795c52]">
-            Follow your order from confirmation to delivery.
+            Enter your Order ID and the mobile number used while placing the
+            order.
           </p>
-
         </div>
 
-
-        {/* ORDER HEADER */}
-
-        <section className="mt-10 rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm md:p-8">
-
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-
+        <form
+          onSubmit={findOrder}
+          className="mt-8 rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm md:p-8"
+        >
+          <div className="grid gap-5 md:grid-cols-2">
             <div>
-
-              <p className="text-sm text-[#795c52]">
+              <label className="mb-2 block text-sm font-black">
                 Order ID
-              </p>
-
-              <h2 className="mt-1 text-2xl font-black text-[#a51c24]">
-                {order.orderId}
-              </h2>
-
+              </label>
+              <input
+                value={orderId}
+                onChange={(e) => setOrderId(e.target.value)}
+                placeholder="Example: DBD-248001-999-AB12CD34"
+                className="w-full rounded-2xl border border-[#dcc8b5] bg-[#fffaf4] px-4 py-3 outline-none focus:border-[#a51c24]"
+              />
             </div>
 
-
-            <div className="md:text-right">
-
-              <p className="text-sm text-[#795c52]">
-                Order Date
-              </p>
-
-              <p className="mt-1 font-bold text-[#321817]">
-                {new Date(order.createdAt).toLocaleString("en-IN")}
-              </p>
-
+            <div>
+              <label className="mb-2 block text-sm font-black">
+                Mobile Number
+              </label>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                inputMode="numeric"
+                placeholder="10-digit mobile number"
+                className="w-full rounded-2xl border border-[#dcc8b5] bg-[#fffaf4] px-4 py-3 outline-none focus:border-[#a51c24]"
+              />
             </div>
-
-
-            <div className="rounded-full bg-green-100 px-5 py-2 text-center font-bold text-green-700">
-              {order.status || "Order Received"}
-            </div>
-
           </div>
 
-        </section>
+          <button
+            type="submit"
+            disabled={loading}
+            className="mt-6 w-full rounded-2xl bg-[#a51c24] px-5 py-4 font-black text-white transition hover:bg-[#8f171e] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? "Finding Order..." : "Track My Order"}
+          </button>
 
+          {message && (
+            <div className="mt-4 rounded-2xl bg-[#fff1ed] p-4 text-center text-sm font-bold text-[#a51c24]">
+              {message}
+            </div>
+          )}
+        </form>
 
-        {/* TRACKING */}
-
-        <section className="mt-7 rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm md:p-8">
-
-          <h2 className="text-2xl font-black text-[#321817]">
-            Order Tracking
-          </h2>
-
-          <p className="mt-2 text-sm text-[#795c52]">
-            Current status of your order
-          </p>
-
-
-          <div className="mt-8">
-
-            {trackingSteps.map((step, index) => {
-
-              const completed = index <= currentStep;
-              const active = index === currentStep;
-
-              return (
-                <div
-                  key={step}
-                  className="relative flex min-h-[82px] gap-5"
-                >
-
-                  {/* VERTICAL LINE */}
-
-                  {index < trackingSteps.length - 1 && (
-                    <div
-                      className={`absolute left-[19px] top-[40px] h-[60px] w-[3px] ${
-                        index < currentStep
-                          ? "bg-[#a51c24]"
-                          : "bg-[#ead8c7]"
-                      }`}
-                    />
-                  )}
-
-
-                  {/* NUMBER */}
-
-                  <div
-                    className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 text-sm font-black ${
-                      completed
-                        ? "border-[#a51c24] bg-[#a51c24] text-white"
-                        : "border-[#ead8c7] bg-white text-[#795c52]"
-                    }`}
-                  >
-                    {completed ? "✓" : index + 1}
-                  </div>
-
-
-                  {/* TEXT */}
-
-                  <div className="pt-1">
-
-                    <p
-                      className={`font-bold ${
-                        active
-                          ? "text-[#a51c24]"
-                          : completed
-                          ? "text-[#321817]"
-                          : "text-[#795c52]"
-                      }`}
-                    >
-                      {step}
-                    </p>
-
-                    {active && (
-                      <p className="mt-1 text-sm text-[#795c52]">
-                        Your order is currently at this stage.
-                      </p>
-                    )}
-
-                  </div>
-
+        {order && (
+          <section className="mt-8 space-y-6">
+            <div className="rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm md:p-8">
+              <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wider text-[#a56c58]">
+                    Order ID
+                  </p>
+                  <h2 className="mt-1 break-all text-2xl font-black text-[#a51c24]">
+                    {order.order_id}
+                  </h2>
+                  <p className="mt-2 text-sm text-[#795c52]">
+                    Placed on {formattedDate}
+                  </p>
                 </div>
-              );
-            })}
 
-          </div>
+                <div className="rounded-2xl bg-[#f7eadc] px-5 py-3 text-center">
+                  <p className="text-xs font-black uppercase text-[#795c52]">
+                    Current Status
+                  </p>
+                  <p className="mt-1 text-lg font-black text-[#a51c24]">
+                    {order.status}
+                  </p>
+                </div>
+              </div>
+            </div>
 
-        </section>
+            <div className="rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm md:p-8">
+              <h2 className="text-2xl font-black">Order Status</h2>
 
+              <div className="mt-8 space-y-5">
+                {statuses.map((status, index) => {
+                  const completed = index <= currentIndex;
+                  const active = index === currentIndex;
 
-        {/* ORDER ITEMS */}
+                  return (
+                    <div key={status} className="flex items-start gap-4">
+                      <div
+                        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 font-black ${
+                          completed
+                            ? "border-[#a51c24] bg-[#a51c24] text-white"
+                            : "border-[#dcc8b5] bg-[#fffaf4] text-[#a56c58]"
+                        }`}
+                      >
+                        {completed ? "✓" : index + 1}
+                      </div>
 
-        <section className="mt-7 rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm md:p-8">
-
-          <div className="flex items-center justify-between">
-
-            <h2 className="text-2xl font-black text-[#321817]">
-              Your Order
-            </h2>
-
-            <p className="font-black text-[#a51c24]">
-              ₹{order.total.toLocaleString("en-IN")}
-            </p>
-
-          </div>
-
-
-          <div className="mt-6 space-y-4">
-
-            {order.items.map((item, index) => {
-
-              /*
-                IMPORTANT:
-                Find the actual product from products.ts
-                using the product ID saved in the order.
-              */
-
-              const product = products.find(
-                (product) => product.id === item.id
-              );
-
-
-              /*
-                Fallback if the product cannot be found.
-              */
-
-              if (!product) {
-                return (
-                  <div
-                    key={`${item.id}-${index}`}
-                    className="rounded-2xl border border-[#ead8c7] bg-[#fffaf4] p-5"
-                  >
-
-                    <p className="font-bold text-[#321817]">
-                      Product #{item.id}
-                    </p>
-
-                    <p className="mt-1 text-sm text-[#795c52]">
-                      Quantity: {item.quantity}
-                    </p>
-
-                  </div>
-                );
-              }
-
-
-              return (
-                <div
-                  key={`${product.id}-${index}`}
-                  className="flex flex-col gap-5 rounded-2xl border border-[#ead8c7] bg-[#fffaf4] p-4 sm:flex-row sm:items-center"
-                >
-
-                  {/* PRODUCT IMAGE */}
-
-                  <div className="flex h-28 w-full shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white sm:h-28 sm:w-28">
-
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      className="h-full w-full object-cover"
-                    />
-
-                  </div>
-
-
-                  {/* PRODUCT INFORMATION */}
-
-                  <div className="min-w-0 flex-1">
-
-                    <p className="text-xs font-bold uppercase tracking-wider text-[#a51c24]">
-                      {product.category}
-                    </p>
-
-                    <h3 className="mt-1 text-lg font-black text-[#321817]">
-                      {product.name}
-                    </h3>
-
-                    <p className="mt-1 text-sm text-[#795c52]">
-                      {product.description}
-                    </p>
-
-
-                    {/* CUSTOM DETAILS */}
-
-                    {item.customName && (
-                      <p className="mt-2 text-sm text-[#795c52]">
-                        <strong>Custom Name:</strong>{" "}
-                        {item.customName}
-                      </p>
-                    )}
-
-                    {item.customSize && (
-                      <p className="text-sm text-[#795c52]">
-                        <strong>Size:</strong>{" "}
-                        {item.customSize}
-                      </p>
-                    )}
-
-                    {item.instructions && (
-                      <p className="text-sm text-[#795c52]">
-                        <strong>Instructions:</strong>{" "}
-                        {item.instructions}
-                      </p>
-                    )}
-
-                  </div>
-
-
-                  {/* PRICE + QUANTITY */}
-
-                  <div className="flex items-center justify-between gap-6 sm:block sm:text-right">
-
-                    <div>
-
-                      <p className="text-sm text-[#795c52]">
-                        Quantity
-                      </p>
-
-                      <p className="font-bold text-[#321817]">
-                        × {item.quantity}
-                      </p>
-
+                      <div className="pt-1">
+                        <p
+                          className={`font-black ${
+                            active ? "text-[#a51c24]" : "text-[#321817]"
+                          }`}
+                        >
+                          {status}
+                        </p>
+                        {active && (
+                          <p className="mt-1 text-sm text-[#795c52]">
+                            Your order is currently here.
+                          </p>
+                        )}
+                      </div>
                     </div>
+                  );
+                })}
+              </div>
 
+              <p className="mt-8 rounded-2xl bg-[#f7eadc] p-4 text-sm text-[#795c52]">
+                This page refreshes the order status automatically every 20
+                seconds.
+              </p>
+            </div>
 
-                    <p className="mt-2 font-black text-[#321817]">
-                      ₹{(product.price * item.quantity).toLocaleString("en-IN")}
-                    </p>
+            <div className="rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm md:p-8">
+              <h2 className="text-2xl font-black">Order Details</h2>
 
-                  </div>
-
+              <div className="mt-5 grid gap-4 text-sm md:grid-cols-2">
+                <div className="rounded-2xl bg-[#fffaf4] p-4">
+                  <p className="font-black">Customer</p>
+                  <p className="mt-1 text-[#795c52]">{order.customer_name}</p>
                 </div>
-              );
-            })}
 
-          </div>
+                <div className="rounded-2xl bg-[#fffaf4] p-4">
+                  <p className="font-black">Delivery Location</p>
+                  <p className="mt-1 text-[#795c52]">
+                    {order.customer_city} - {order.customer_pincode}
+                  </p>
+                </div>
+              </div>
 
-        </section>
+              <div className="mt-6 divide-y divide-[#ead8c7]">
+                {order.items.map((item, index) => (
+                  <div
+                    key={`${item.id}-${item.cartKey || index}`}
+                    className="flex items-center justify-between gap-4 py-4"
+                  >
+                    <div>
+                      <p className="font-bold">
+                        Product #{item.id}
+                        {item.customName ? ` — ${item.customName}` : ""}
+                      </p>
+                      <p className="text-sm text-[#795c52]">
+                        Quantity: {item.quantity}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
 
-
-        {/* DELIVERY DETAILS */}
-
-        <section className="mt-7 rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm md:p-8">
-
-          <h2 className="text-2xl font-black text-[#321817]">
-            Delivery Details
-          </h2>
-
-
-          <div className="mt-5 grid gap-5 md:grid-cols-2">
-
-            <div>
-
-              <p className="text-xs font-bold uppercase tracking-wider text-[#a51c24]">
-                Customer
-              </p>
-
-              <p className="mt-1 font-bold text-[#321817]">
-                {order.customer.name}
-              </p>
-
+              <div className="mt-5 flex items-center justify-between border-t border-[#ead8c7] pt-5 text-lg font-black">
+                <span>Total</span>
+                <span>₹{order.total}</span>
+              </div>
             </div>
 
-
-            <div>
-
-              <p className="text-xs font-bold uppercase tracking-wider text-[#a51c24]">
-                Mobile
-              </p>
-
-              <p className="mt-1 font-bold text-[#321817]">
-                {order.customer.phone}
-              </p>
-
+            <div className="text-center">
+              <Link
+                href="/"
+                className="inline-block rounded-2xl border border-[#dcc8b5] bg-white px-6 py-3 font-black text-[#a51c24] hover:bg-[#f7eadc]"
+              >
+                Continue Shopping
+              </Link>
             </div>
-
-
-            <div>
-
-              <p className="text-xs font-bold uppercase tracking-wider text-[#a51c24]">
-                Address
-              </p>
-
-              <p className="mt-1 text-[#795c52]">
-                {order.customer.address}
-              </p>
-
-            </div>
-
-
-            <div>
-
-              <p className="text-xs font-bold uppercase tracking-wider text-[#a51c24]">
-                City
-              </p>
-
-              <p className="mt-1 text-[#795c52]">
-                {order.customer.city}
-              </p>
-
-            </div>
-
-
-            <div>
-
-              <p className="text-xs font-bold uppercase tracking-wider text-[#a51c24]">
-                Pincode
-              </p>
-
-              <p className="mt-1 font-bold text-[#321817]">
-                {order.customer.pincode}
-              </p>
-
-            </div>
-
-          </div>
-
-        </section>
-
-
-        {/* BUTTONS */}
-
-        <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
-
-          <button
-            type="button"
-            onClick={() => router.push("/")}
-            className="rounded-full border border-[#a51c24] px-8 py-3 font-bold text-[#a51c24] transition hover:bg-[#fff1e8]"
-          >
-            Continue Shopping
-          </button>
-
-
-          <button
-            type="button"
-            onClick={() => window.location.reload()}
-            className="rounded-full bg-[#a51c24] px-8 py-3 font-bold text-white transition hover:bg-[#85161d]"
-          >
-            Refresh Tracking
-          </button>
-
-        </div>
-
-
-        {/* FOOTER */}
-
-        <p className="mt-8 pb-8 text-center text-xs text-[#795c52]">
-          Handmade in Uttarakhand • Pan India delivery
-        </p>
-
+          </section>
+        )}
       </div>
-
     </main>
   );
 }
