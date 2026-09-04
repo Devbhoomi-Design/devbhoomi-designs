@@ -26,7 +26,9 @@ type CartItem = {
   instructions?: string;
 };
 
-type Product = (typeof products)[number];
+type Product = (typeof products)[number] & {
+  in_stock?: boolean;
+};
 
 const categoryIcons: Record<string, string> = {
   "Personalised Art": "✦",
@@ -205,6 +207,7 @@ export default function Home() {
           badge: product.badge ?? undefined,
           customizable: Boolean(product.customizable),
           image: product.image ?? "",
+          in_stock: product.in_stock ?? true,
         }));
 
         setStoreProducts(formattedProducts);
@@ -253,54 +256,73 @@ export default function Home() {
   }, [search, selectedCategory, storeProducts]);
 
   const addToCart = (
-  id: number,
-  customization?: {
-    customName?: string;
-    customSize?: string;
-    instructions?: string;
-  }
-) => {
-  setCart((current) => {
-    const existing = current.find(
-      (item) =>
-        item.id === id &&
-        item.customName === customization?.customName &&
-        item.customSize === customization?.customSize &&
-        item.instructions === customization?.instructions
-    );
+    id: number,
+    customization?: {
+      customName?: string;
+      customSize?: string;
+      instructions?: string;
+    }
+  ) => {
+    const product = storeProducts.find((item) => item.id === id);
 
-    let updatedCart: CartItem[];
-
-    if (existing) {
-      updatedCart = current.map((item) =>
-        item === existing
-          ? {
-              ...item,
-              quantity: item.quantity + 1,
-            }
-          : item
-      );
-    } else {
-      updatedCart = [
-        ...current,
-        {
-          id,
-          quantity: 1,
-          customName: customization?.customName,
-          customSize: customization?.customSize,
-          instructions: customization?.instructions,
-        },
-      ];
+    if (!product) {
+      alert("This product is no longer available.");
+      return;
     }
 
-    localStorage.setItem("devbhoomi-cart", JSON.stringify(updatedCart));
-    return updatedCart;
-  });
+    if (product.in_stock === false) {
+      alert("Sorry, this product is currently out of stock.");
+      return;
+    }
 
-  setCartOpen(true);
-};
+    setCart((current) => {
+      const existing = current.find(
+        (item) =>
+          item.id === id &&
+          item.customName === customization?.customName &&
+          item.customSize === customization?.customSize &&
+          item.instructions === customization?.instructions
+      );
+
+      let updatedCart: CartItem[];
+
+      if (existing) {
+        updatedCart = current.map((item) =>
+          item === existing
+            ? {
+                ...item,
+                quantity: item.quantity + 1,
+              }
+            : item
+        );
+      } else {
+        updatedCart = [
+          ...current,
+          {
+            id,
+            quantity: 1,
+            customName: customization?.customName,
+            customSize: customization?.customSize,
+            instructions: customization?.instructions,
+          },
+        ];
+      }
+
+      localStorage.setItem("devbhoomi-cart", JSON.stringify(updatedCart));
+      return updatedCart;
+    });
+
+    setCartOpen(true);
+  };
 
   const increaseQuantity = (id: number) => {
+    const product = storeProducts.find((item) => item.id === id);
+
+    if (product?.in_stock === false) {
+      alert("Sorry, this product is currently out of stock.");
+      return;
+    }
+
     setCart((current) => {
       const updatedCart = current.map((item) =>
         item.id === id
@@ -740,6 +762,12 @@ export default function Home() {
                   </span>
                 )}
 
+                {product.in_stock === false && (
+                  <span className="absolute left-4 top-14 rounded-full bg-red-700 px-3 py-1 text-xs font-bold text-white">
+                    Out of Stock
+                  </span>
+                )}
+
                 <button
                   type="button"
                   className="absolute right-4 top-4 rounded-full bg-white/90 p-2"
@@ -785,8 +813,9 @@ export default function Home() {
                 {product.customizable && (
                   <button
                     type="button"
+                    disabled={product.in_stock === false}
                     onClick={() => openCustomize(product)}
-                    className="mt-3 w-full rounded-full border border-[#b51c24] px-5 py-3 text-sm font-bold text-[#b51c24] transition hover:bg-[#b51c24] hover:text-white"
+                    className="mt-3 w-full rounded-full border border-[#b51c24] px-5 py-3 text-sm font-bold text-[#b51c24] transition hover:bg-[#b51c24] hover:text-white disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent disabled:hover:text-gray-400"
                   >
                     ✨ Customize This Product
                   </button>
@@ -794,11 +823,12 @@ export default function Home() {
 
                 <button
                   type="button"
+                  disabled={product.in_stock === false}
                   onClick={() => addToCart(product.id)}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#351717] px-4 py-3 font-bold text-white transition hover:bg-[#a51c24]"
+                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#351717] px-4 py-3 font-bold text-white transition hover:bg-[#a51c24] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600"
                 >
                   <ShoppingBag size={17} />
-                  Add to Cart
+                  {product.in_stock === false ? "Out of Stock" : "Add to Cart"}
                 </button>
               </div>
             </article>
