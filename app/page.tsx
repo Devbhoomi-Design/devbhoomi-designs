@@ -627,8 +627,76 @@ export default function Home() {
         </div>
       </header>
 
+      {/* MOBILE SHOP HEADER */}
+      <section className="border-b border-[#ead8c7] bg-[#fffaf4] px-3 py-2 md:hidden">
+        <div className="flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 items-center rounded-xl border border-[#dcc8b5] bg-white px-3 py-2.5 shadow-sm">
+            <Search size={17} className="shrink-0 text-[#795c52]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search Aipan, gifts..."
+              className="ml-2 min-w-0 flex-1 bg-transparent text-sm outline-none"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => setCartOpen(true)}
+            className="relative rounded-xl bg-[#a51c24] p-3 text-white shadow-sm"
+            aria-label="Open cart"
+          >
+            <ShoppingBag size={19} />
+            {cartCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#ffd99c] text-[10px] font-black text-[#571719]">
+                {cartCount}
+              </span>
+            )}
+          </button>
+        </div>
+        <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          {categories.map((category) => (
+            <button
+              key={category}
+              type="button"
+              onClick={() => setSelectedCategory(category)}
+              className={`shrink-0 rounded-full px-3.5 py-2 text-[11px] font-bold ${
+                selectedCategory === category
+                  ? "bg-[#a51c24] text-white"
+                  : "border border-[#dcc8b5] bg-white text-[#351717]"
+              }`}
+            >
+              {category}
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* COMPACT MOBILE BANNER */}
+      <section className="mx-3 mt-3 overflow-hidden rounded-2xl bg-[#a51c24] text-white shadow-sm md:hidden">
+        <div className="flex items-center justify-between px-4 py-4">
+          <div>
+            <p className="text-[9px] font-bold tracking-[0.18em] text-[#ffd99c]">
+              HANDMADE • UTTARAKHAND
+            </p>
+            <h2 className="mt-1 text-lg font-black leading-tight">
+              A piece of Devbhoomi for your home.
+            </h2>
+            <button
+              type="button"
+              onClick={() => document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" })}
+              className="mt-2 rounded-full bg-[#ffd99c] px-4 py-2 text-[11px] font-black text-[#571719]"
+            >
+              Shop Now
+            </button>
+          </div>
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-[#ffd99c] text-4xl text-[#ffd99c]">
+            ॐ
+          </div>
+        </div>
+      </section>
+
       {/* HERO */}
-      <section className="relative overflow-hidden bg-[#a51c24] text-white">
+      <section className="relative hidden overflow-hidden bg-[#a51c24] text-white md:block">
         <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full border-[40px] border-[#d94b2b]/40" />
 
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-20 md:grid-cols-2">
@@ -693,7 +761,7 @@ export default function Home() {
       {/* CATEGORY */}
       <section className="mx-auto max-w-7xl px-5 py-12">
         <div className="mb-7">
-          <p className="text-sm font-bold tracking-[0.25em] text-[#a51c24]">
+          <p className="text-[10px] font-bold tracking-[0.2em] text-[#a51c24] sm:text-sm sm:tracking-[0.25em]">
             EXPLORE
           </p>
 
@@ -720,14 +788,14 @@ export default function Home() {
       </section>
 
       {/* SHOP */}
-      <section id="shop" className="mx-auto max-w-7xl px-5 pb-20">
-        <div className="mb-8 flex items-end justify-between">
+      <section id="shop" className="mx-auto max-w-7xl px-3 pb-24 pt-2 sm:px-5 sm:pb-20">
+        <div className="mb-4 flex items-end justify-between sm:mb-8">
           <div>
             <p className="text-sm font-bold tracking-[0.25em] text-[#a51c24]">
               THE COLLECTION
             </p>
 
-            <h2 className="mt-2 text-4xl font-black">
+            <h2 className="mt-1 text-xl font-black sm:mt-2 sm:text-4xl">
               Handmade favourites
             </h2>
           </div>
@@ -737,86 +805,75 @@ export default function Home() {
           </span>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-6 lg:grid-cols-4">
           {filteredProducts.map((product) => (
             <article
               key={product.id}
-              className="group overflow-hidden rounded-3xl border border-[#ead8c7] bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-xl"
+              className="group overflow-hidden rounded-xl border border-[#ead8c7] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:rounded-3xl sm:hover:-translate-y-2"
             >
-              <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-[#fffaf4]">
-                {product.image ? (
-                  <img
-                    src={product.image}
-                    alt={product.name}
-                    className="h-full w-full object-contain p-2 transition duration-300 group-hover:scale-105"
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                    }}
-                  />
-                ) : (
-                  <div className="relative flex h-full w-full items-center justify-center bg-[#9e2025]">
-                    <div className="absolute inset-5 rounded-2xl border-2 border-[#ffd99c]/50" />
-                    <div className="absolute inset-10 rounded-full border border-[#ffd99c]/40" />
-                    <div className="relative text-center">
-                      <div className="text-6xl text-[#ffd99c]">
-                        {categoryIcons[product.category] || "✦"}
-                      </div>
-                      <div className="mt-4 text-xs font-bold tracking-[0.3em] text-white/80">
-                        DEVBHOOMI
-                      </div>
-                    </div>
+              <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-[#9e2025]">
+                <div className="absolute inset-3 rounded-xl border-2 border-[#ffd99c]/50 sm:inset-5 sm:rounded-2xl" />
+                <div className="absolute inset-6 rounded-full border border-[#ffd99c]/40 sm:inset-10" />
+
+                <div className="relative text-center">
+                  <div className="text-4xl text-[#ffd99c] sm:text-6xl">
+                    {categoryIcons[product.category] || "✦"}
                   </div>
-                )}
+
+                  <div className="mt-2 text-[8px] font-bold tracking-[0.2em] text-white/80 sm:mt-4 sm:text-xs sm:tracking-[0.3em]">
+                    DEVBHOOMI
+                  </div>
+                </div>
 
                 {product.badge && (
-                  <span className="absolute left-4 top-4 rounded-full bg-[#ffd99c] px-3 py-1 text-xs font-bold text-[#571719]">
+                  <span className="absolute left-2 top-2 rounded-full bg-[#ffd99c] px-2 py-1 text-[8px] font-bold text-[#571719] sm:left-4 sm:top-4 sm:px-3 sm:text-xs">
                     {product.badge}
                   </span>
                 )}
 
                 {product.in_stock === false && (
-                  <span className="absolute left-4 top-14 rounded-full bg-red-700 px-3 py-1 text-xs font-bold text-white">
+                  <span className="absolute left-2 top-10 rounded-full bg-red-700 px-2 py-1 text-[8px] font-bold text-white sm:left-4 sm:top-14 sm:px-3 sm:text-xs">
                     Out of Stock
                   </span>
                 )}
 
                 <button
                   type="button"
-                  className="absolute right-4 top-4 rounded-full bg-white/90 p-2"
+                  className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 sm:right-4 sm:top-4 sm:p-2"
                 >
                   <Heart size={17} />
                 </button>
               </div>
 
-              <div className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">
+              <div className="p-2.5 sm:p-5">
+                <p className="text-[8px] font-bold uppercase tracking-wide text-[#a56c58] sm:text-xs sm:tracking-wider">
                   {product.category}
                 </p>
 
-                <h3 className="mt-2 min-h-[52px] text-lg font-bold">
+                <h3 className="mt-1 min-h-[38px] text-[13px] font-bold leading-5 sm:mt-2 sm:min-h-[52px] sm:text-lg sm:leading-normal">
                   {product.name}
                 </h3>
 
                 <button
                   type="button"
                   onClick={() => setSelectedProduct(product)}
-                  className="mt-2 text-sm font-bold text-[#a51c24] underline underline-offset-4"
+                  className="mt-1 text-[10px] font-bold text-[#a51c24] underline underline-offset-4 sm:mt-2 sm:text-sm"
                 >
                   View Details
                 </button>
 
-                <div className="mt-4 flex items-center gap-2">
-                  <span className="text-xl font-black">
+                <div className="mt-2 flex items-center gap-1 sm:mt-4 sm:gap-2">
+                  <span className="text-[15px] font-black sm:text-xl">
                     ₹{product.price.toLocaleString("en-IN")}
                   </span>
 
-                  <span className="text-sm text-gray-400 line-through">
+                  <span className="text-[9px] text-gray-400 line-through sm:text-sm">
                     ₹{product.originalPrice.toLocaleString("en-IN")}
                   </span>
                 </div>
 
                 {product.customizable && (
-                  <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#a51c24]">
+                  <div className="mt-2 flex items-center gap-1 text-[9px] font-semibold text-[#a51c24] sm:mt-3 sm:gap-2 sm:text-xs">
                     <Sparkles size={14} />
                     Customisable
                   </div>
@@ -827,7 +884,7 @@ export default function Home() {
                     type="button"
                     disabled={product.in_stock === false}
                     onClick={() => openCustomize(product)}
-                    className="mt-3 w-full rounded-full border border-[#b51c24] px-5 py-3 text-sm font-bold text-[#b51c24] transition hover:bg-[#b51c24] hover:text-white disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                    className="mt-2 w-full rounded-lg border border-[#b51c24] px-2 py-2 text-[9px] font-bold text-[#b51c24] transition hover:bg-[#b51c24] hover:text-white disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent disabled:hover:text-gray-400 sm:mt-3 sm:rounded-full sm:px-5 sm:py-3 sm:text-sm"
                   >
                     ✨ Customize This Product
                   </button>
@@ -837,7 +894,7 @@ export default function Home() {
                   type="button"
                   disabled={product.in_stock === false}
                   onClick={() => addToCart(product.id)}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#351717] px-4 py-3 font-bold text-white transition hover:bg-[#a51c24] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600"
+                  className="mt-2.5 flex w-full items-center justify-center gap-1 rounded-lg bg-[#351717] px-2 py-2.5 text-[10px] font-bold text-white transition hover:bg-[#a51c24] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 sm:mt-5 sm:gap-2 sm:rounded-full sm:px-4 sm:py-3 sm:text-base"
                 >
                   <ShoppingBag size={17} />
                   {product.in_stock === false ? "Out of Stock" : "Add to Cart"}
@@ -1156,6 +1213,27 @@ export default function Home() {
         </div>
       </footer>
 
+      {/* MOBILE BOTTOM NAV */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ead8c7] bg-[#fffaf4]/95 px-2 py-2 shadow-[0_-4px_18px_rgba(80,40,20,0.08)] backdrop-blur md:hidden">
+        <div className="mx-auto grid max-w-md grid-cols-5 text-center">
+          <a href="#" className="rounded-lg py-1.5 text-[10px] font-bold text-[#a51c24]">
+            <div className="text-base">⌂</div>Home
+          </a>
+          <a href="#shop" className="rounded-lg py-1.5 text-[10px] font-bold text-[#795c52]">
+            <div className="text-base">▣</div>Shop
+          </a>
+          <a href="#custom" className="rounded-lg py-1.5 text-[10px] font-bold text-[#795c52]">
+            <div className="text-base">✦</div>Custom
+          </a>
+          <button type="button" onClick={() => router.push("/my-orders")} className="rounded-lg py-1.5 text-[10px] font-bold text-[#795c52]">
+            <div className="text-base">📦</div>Orders
+          </button>
+          <button type="button" onClick={() => { window.location.href = user ? "/my-orders" : "/login"; }} className="rounded-lg py-1.5 text-[10px] font-bold text-[#795c52]">
+            <div className="text-base">●</div>Account
+          </button>
+        </div>
+      </nav>
+
       {/* CART DRAWER */}
       {cartOpen && (
         <div className="fixed inset-0 z-50">
@@ -1215,18 +1293,8 @@ export default function Home() {
                       className="rounded-2xl border border-[#ead8c7] bg-white p-4"
                     >
                       <div className="flex gap-4">
-                        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#fffaf4]">
-                          {product.image ? (
-                            <img
-                              src={product.image}
-                              alt={product.name}
-                              className="h-full w-full object-contain"
-                            />
-                          ) : (
-                            <span className="text-3xl text-[#a51c24]">
-                              {categoryIcons[product.category] || "✦"}
-                            </span>
-                          )}
+                        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-[#9e2025] text-3xl text-[#ffd99c]">
+                          {categoryIcons[product.category] || "✦"}
                         </div>
 
                         <div className="min-w-0 flex-1">
