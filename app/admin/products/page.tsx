@@ -34,6 +34,7 @@ export default function AdminProductsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [, setAuthorized] = useState(false);
 
   // CHECK ADMIN ACCESS, THEN LOAD PRODUCTS
@@ -379,18 +380,99 @@ export default function AdminProductsPage() {
               />
             </div>
 
-            {/* IMAGE */}
+            {/* PRODUCT IMAGE UPLOAD */}
             <div>
               <label className="font-bold text-[#321817]">
-                Image Path / URL
+                Product Image
               </label>
 
+              <div className="mt-2 rounded-2xl border border-[#dcc8b5] bg-[#fffaf4] p-4">
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/jpg"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    if (!file.type.startsWith("image/")) {
+                      alert("Please select an image file.");
+                      return;
+                    }
+
+                    if (file.size > 10 * 1024 * 1024) {
+                      alert("Please choose an image smaller than 10 MB.");
+                      return;
+                    }
+
+                    setUploadingImage(true);
+
+                    try {
+                      const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+                      const filePath = `products/${crypto.randomUUID()}.${extension}`;
+
+                      const { error: uploadError } = await supabase.storage
+                        .from("product-images")
+                        .upload(filePath, file, {
+                          cacheControl: "3600",
+                          upsert: false,
+                          contentType: file.type,
+                        });
+
+                      if (uploadError) {
+                        console.error("Image upload error:", uploadError);
+                        alert(`Could not upload image: ${uploadError.message}`);
+                        return;
+                      }
+
+                      const { data } = supabase.storage
+                        .from("product-images")
+                        .getPublicUrl(filePath);
+
+                      setForm((current) => ({
+                        ...current,
+                        image: data.publicUrl,
+                      }));
+
+                      alert("Product image uploaded successfully.");
+                    } finally {
+                      setUploadingImage(false);
+                      e.target.value = "";
+                    }
+                  }}
+                  className="block w-full cursor-pointer text-sm text-[#321817] file:mr-4 file:rounded-full file:border-0 file:bg-[#a51c24] file:px-5 file:py-2 file:font-bold file:text-white"
+                />
+
+                <p className="mt-2 text-xs text-[#795c52]">
+                  JPG, PNG or WebP • Maximum 10 MB • The original image is uploaded without resizing.
+                </p>
+
+                {uploadingImage && (
+                  <p className="mt-3 text-sm font-bold text-[#a51c24]">
+                    Uploading image...
+                  </p>
+                )}
+
+                {form.image && (
+                  <div className="mt-4 overflow-hidden rounded-xl border border-[#ead8c7] bg-white p-2">
+                    <img
+                      src={form.image}
+                      alt="Product preview"
+                      className="h-48 w-full object-contain"
+                    />
+                    <p className="mt-2 text-xs font-bold text-green-700">
+                      ✓ Image ready for this product
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Optional manual URL for existing/legacy products */}
               <input
                 name="image"
                 value={form.image}
                 onChange={handleChange}
-                placeholder="/products/product.jpg"
-                className="mt-2 w-full rounded-xl border border-[#dcc8b5] px-4 py-3 outline-none focus:border-[#a51c24]"
+                placeholder="Or paste an image URL"
+                className="mt-3 w-full rounded-xl border border-[#dcc8b5] px-4 py-3 text-sm outline-none focus:border-[#a51c24]"
               />
             </div>
 
@@ -444,7 +526,7 @@ export default function AdminProductsPage() {
             <div className="flex justify-end md:col-span-2">
               <button
                 type="submit"
-                disabled={saving}
+                disabled={saving || uploadingImage}
                 className="rounded-full bg-[#a51c24] px-8 py-3 font-bold text-white disabled:opacity-50"
               >
                 {saving
@@ -475,7 +557,7 @@ export default function AdminProductsPage() {
                     <img
                       src={product.image}
                       alt={product.name}
-                      className="h-full w-full object-cover"
+                      className="h-full w-full object-contain p-2"
                     />
                   ) : (
                     <div className="flex h-full items-center justify-center text-5xl">
