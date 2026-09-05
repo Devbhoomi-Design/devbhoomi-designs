@@ -13,6 +13,10 @@ import {
   X,
   Sparkles,
   Heart,
+  Home as HomeIcon,
+  Grid2X2,
+  ClipboardList,
+  User,
 } from "lucide-react";
 
 import { products } from "./products";
@@ -41,6 +45,20 @@ const categoryIcons: Record<string, string> = {
   "Festive Gifts": "❈",
   "Personalised Gifts": "♡",
 };
+
+const legacyProductImages: Record<string, string> = {
+  "Personalised Aipan Nameplate": "/products/nameplate.jpg",
+  "Aipan Kalash / Tauli / Lota": "/products/kalash.jpg",
+  "Aipan Wall Hanging": "/products/wall-hanging.jpg",
+  "Customised Aipan Chowki": "/products/chowki.jpg",
+  "Aipan Pooja Thali": "/products/thali.jpg",
+  "Mandala Art": "/products/mandala.jpg",
+  "Aipan Karwachauth Set": "/products/karwachauth.jpg",
+  "Personalised Couple Gift": "/products/couple-gift.jpg",
+};
+
+const getProductImage = (product: Product) =>
+  product.image?.trim() || legacyProductImages[product.name] || "";
 
 export default function Home() {
   const router = useRouter();
@@ -627,76 +645,8 @@ export default function Home() {
         </div>
       </header>
 
-      {/* MOBILE SHOP HEADER */}
-      <section className="border-b border-[#ead8c7] bg-[#fffaf4] px-3 py-2 md:hidden">
-        <div className="flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 items-center rounded-xl border border-[#dcc8b5] bg-white px-3 py-2.5 shadow-sm">
-            <Search size={17} className="shrink-0 text-[#795c52]" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search Aipan, gifts..."
-              className="ml-2 min-w-0 flex-1 bg-transparent text-sm outline-none"
-            />
-          </div>
-          <button
-            type="button"
-            onClick={() => setCartOpen(true)}
-            className="relative rounded-xl bg-[#a51c24] p-3 text-white shadow-sm"
-            aria-label="Open cart"
-          >
-            <ShoppingBag size={19} />
-            {cartCount > 0 && (
-              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#ffd99c] text-[10px] font-black text-[#571719]">
-                {cartCount}
-              </span>
-            )}
-          </button>
-        </div>
-        <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {categories.map((category) => (
-            <button
-              key={category}
-              type="button"
-              onClick={() => setSelectedCategory(category)}
-              className={`shrink-0 rounded-full px-3.5 py-2 text-[11px] font-bold ${
-                selectedCategory === category
-                  ? "bg-[#a51c24] text-white"
-                  : "border border-[#dcc8b5] bg-white text-[#351717]"
-              }`}
-            >
-              {category}
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* COMPACT MOBILE BANNER */}
-      <section className="mx-3 mt-3 overflow-hidden rounded-2xl bg-[#a51c24] text-white shadow-sm md:hidden">
-        <div className="flex items-center justify-between px-4 py-4">
-          <div>
-            <p className="text-[9px] font-bold tracking-[0.18em] text-[#ffd99c]">
-              HANDMADE • UTTARAKHAND
-            </p>
-            <h2 className="mt-1 text-lg font-black leading-tight">
-              A piece of Devbhoomi for your home.
-            </h2>
-            <button
-              type="button"
-              onClick={() => document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" })}
-              className="mt-2 rounded-full bg-[#ffd99c] px-4 py-2 text-[11px] font-black text-[#571719]"
-            >
-              Shop Now
-            </button>
-          </div>
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border-2 border-[#ffd99c] text-4xl text-[#ffd99c]">
-            ॐ
-          </div>
-        </div>
-      </section>
-
       {/* HERO */}
-      <section className="relative hidden overflow-hidden bg-[#a51c24] text-white md:block">
+      <section className="relative overflow-hidden bg-[#a51c24] text-white">
         <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full border-[40px] border-[#d94b2b]/40" />
 
         <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-20 md:grid-cols-2">
@@ -761,7 +711,7 @@ export default function Home() {
       {/* CATEGORY */}
       <section className="mx-auto max-w-7xl px-5 py-12">
         <div className="mb-7">
-          <p className="text-[10px] font-bold tracking-[0.2em] text-[#a51c24] sm:text-sm sm:tracking-[0.25em]">
+          <p className="text-sm font-bold tracking-[0.25em] text-[#a51c24]">
             EXPLORE
           </p>
 
@@ -788,14 +738,14 @@ export default function Home() {
       </section>
 
       {/* SHOP */}
-      <section id="shop" className="mx-auto max-w-7xl px-3 pb-24 pt-2 sm:px-5 sm:pb-20">
-        <div className="mb-4 flex items-end justify-between sm:mb-8">
+      <section id="shop" className="mx-auto max-w-7xl px-5 pb-20">
+        <div className="mb-8 flex items-end justify-between">
           <div>
             <p className="text-sm font-bold tracking-[0.25em] text-[#a51c24]">
               THE COLLECTION
             </p>
 
-            <h2 className="mt-1 text-xl font-black sm:mt-2 sm:text-4xl">
+            <h2 className="mt-2 text-4xl font-black">
               Handmade favourites
             </h2>
           </div>
@@ -805,75 +755,85 @@ export default function Home() {
           </span>
         </div>
 
-        <div className="grid grid-cols-2 gap-2.5 sm:gap-6 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
           {filteredProducts.map((product) => (
             <article
               key={product.id}
-              className="group overflow-hidden rounded-xl border border-[#ead8c7] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl sm:rounded-3xl sm:hover:-translate-y-2"
+              className="group overflow-hidden rounded-xl border border-[#ead8c7] bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl md:rounded-3xl"
             >
-              <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-[#9e2025]">
-                <div className="absolute inset-3 rounded-xl border-2 border-[#ffd99c]/50 sm:inset-5 sm:rounded-2xl" />
-                <div className="absolute inset-6 rounded-full border border-[#ffd99c]/40 sm:inset-10" />
-
-                <div className="relative text-center">
-                  <div className="text-4xl text-[#ffd99c] sm:text-6xl">
-                    {categoryIcons[product.category] || "✦"}
-                  </div>
-
-                  <div className="mt-2 text-[8px] font-bold tracking-[0.2em] text-white/80 sm:mt-4 sm:text-xs sm:tracking-[0.3em]">
-                    DEVBHOOMI
+              <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-[#fff8f2]">
+                <div className="absolute inset-0 flex items-center justify-center bg-[#fff8f2]">
+                  <div className="text-center">
+                    <div className="text-5xl text-[#a51c24] md:text-6xl">
+                      {categoryIcons[product.category] || "✦"}
+                    </div>
+                    <div className="mt-2 text-[9px] font-bold tracking-[0.25em] text-[#a56c58] md:text-xs">
+                      DEVBHOOMI
+                    </div>
                   </div>
                 </div>
 
+                {getProductImage(product) && (
+                  <img
+                    src={getProductImage(product)}
+                    alt={product.name}
+                    className="relative z-10 h-full w-full bg-[#fff8f2] object-contain"
+                    loading="lazy"
+                    onError={(event) => {
+                      event.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+
                 {product.badge && (
-                  <span className="absolute left-2 top-2 rounded-full bg-[#ffd99c] px-2 py-1 text-[8px] font-bold text-[#571719] sm:left-4 sm:top-4 sm:px-3 sm:text-xs">
+                  <span className="absolute left-4 top-4 rounded-full bg-[#ffd99c] px-3 py-1 text-xs font-bold text-[#571719]">
                     {product.badge}
                   </span>
                 )}
 
                 {product.in_stock === false && (
-                  <span className="absolute left-2 top-10 rounded-full bg-red-700 px-2 py-1 text-[8px] font-bold text-white sm:left-4 sm:top-14 sm:px-3 sm:text-xs">
+                  <span className="absolute left-4 top-14 rounded-full bg-red-700 px-3 py-1 text-xs font-bold text-white">
                     Out of Stock
                   </span>
                 )}
 
                 <button
                   type="button"
-                  className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 sm:right-4 sm:top-4 sm:p-2"
+                  className="absolute right-4 top-4 rounded-full bg-white/90 p-2"
                 >
                   <Heart size={17} />
                 </button>
               </div>
 
-              <div className="p-2.5 sm:p-5">
-                <p className="text-[8px] font-bold uppercase tracking-wide text-[#a56c58] sm:text-xs sm:tracking-wider">
+              <div className="p-3 md:p-5">
+                <p className="text-[9px] font-bold uppercase tracking-wide text-[#a56c58] md:text-xs md:tracking-wider">
                   {product.category}
                 </p>
 
-                <h3 className="mt-1 min-h-[38px] text-[13px] font-bold leading-5 sm:mt-2 sm:min-h-[52px] sm:text-lg sm:leading-normal">
+                <h3 className="mt-1 min-h-[42px] text-sm font-bold leading-5 md:mt-2 md:min-h-[52px] md:text-lg md:leading-normal">
                   {product.name}
                 </h3>
 
                 <button
                   type="button"
                   onClick={() => setSelectedProduct(product)}
-                  className="mt-1 text-[10px] font-bold text-[#a51c24] underline underline-offset-4 sm:mt-2 sm:text-sm"
+                  className="mt-1 text-xs font-bold text-[#a51c24] underline underline-offset-4 md:mt-2 md:text-sm"
                 >
                   View Details
                 </button>
 
-                <div className="mt-2 flex items-center gap-1 sm:mt-4 sm:gap-2">
-                  <span className="text-[15px] font-black sm:text-xl">
+                <div className="mt-2 flex items-center gap-1.5 md:mt-4 md:gap-2">
+                  <span className="text-base font-black md:text-xl">
                     ₹{product.price.toLocaleString("en-IN")}
                   </span>
 
-                  <span className="text-[9px] text-gray-400 line-through sm:text-sm">
+                  <span className="text-[10px] text-gray-400 line-through md:text-sm">
                     ₹{product.originalPrice.toLocaleString("en-IN")}
                   </span>
                 </div>
 
                 {product.customizable && (
-                  <div className="mt-2 flex items-center gap-1 text-[9px] font-semibold text-[#a51c24] sm:mt-3 sm:gap-2 sm:text-xs">
+                  <div className="mt-2 flex items-center gap-1 text-[10px] font-semibold text-[#a51c24] md:mt-3 md:gap-2 md:text-xs">
                     <Sparkles size={14} />
                     Customisable
                   </div>
@@ -884,7 +844,7 @@ export default function Home() {
                     type="button"
                     disabled={product.in_stock === false}
                     onClick={() => openCustomize(product)}
-                    className="mt-2 w-full rounded-lg border border-[#b51c24] px-2 py-2 text-[9px] font-bold text-[#b51c24] transition hover:bg-[#b51c24] hover:text-white disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent disabled:hover:text-gray-400 sm:mt-3 sm:rounded-full sm:px-5 sm:py-3 sm:text-sm"
+                    className="mt-2 w-full rounded-full border border-[#b51c24] px-2 py-2 text-[10px] font-bold text-[#b51c24] transition hover:bg-[#b51c24] hover:text-white disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent disabled:hover:text-gray-400 md:mt-3 md:px-5 md:py-3 md:text-sm"
                   >
                     ✨ Customize This Product
                   </button>
@@ -894,7 +854,7 @@ export default function Home() {
                   type="button"
                   disabled={product.in_stock === false}
                   onClick={() => addToCart(product.id)}
-                  className="mt-2.5 flex w-full items-center justify-center gap-1 rounded-lg bg-[#351717] px-2 py-2.5 text-[10px] font-bold text-white transition hover:bg-[#a51c24] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 sm:mt-5 sm:gap-2 sm:rounded-full sm:px-4 sm:py-3 sm:text-base"
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full bg-[#351717] px-2 py-2.5 text-xs font-bold text-white transition hover:bg-[#a51c24] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600 md:mt-5 md:gap-2 md:px-4 md:py-3 md:text-base"
                 >
                   <ShoppingBag size={17} />
                   {product.in_stock === false ? "Out of Stock" : "Add to Cart"}
@@ -1174,65 +1134,43 @@ export default function Home() {
       </section>
 
       {/* FOOTER */}
-      <footer className="bg-[#351717] px-5 py-12 text-white">
-        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-3">
+      <footer className="bg-[#351717] px-5 py-12 pb-28 text-white md:pb-12">
+        <div className="mx-auto grid max-w-7xl gap-8 md:grid-cols-4">
           <div>
-            <h3 className="text-2xl font-black">
-              Devbhoomi Designs
-            </h3>
-
-            <p className="mt-3 text-sm leading-6 text-white/60">
-              Traditional Aipan art and personalised creations from
-              Uttarakhand.
-            </p>
+            <h3 className="text-2xl font-black">Devbhoomi Designs</h3>
+            <p className="mt-3 text-sm leading-6 text-white/60">Traditional Aipan art and personalised creations from Uttarakhand.</p>
           </div>
-
           <div>
             <h4 className="font-bold">Contact</h4>
-
-            <p className="mt-3 text-sm text-white/60">
-              Haldwani, Uttarakhand
-            </p>
-
-            <p className="mt-1 text-sm text-white/60">
-              devbhoomidesigns@gmail.com
-            </p>
+            <p className="mt-3 text-sm text-white/60">Haldwani, Uttarakhand</p>
+            <a href="https://wa.me/917409724257" target="_blank" rel="noreferrer" className="mt-2 block text-sm text-white/70 hover:text-white">WhatsApp: +91 74097 24257</a>
+            <a href="mailto:devbhoomidesigns@gmail.com" className="mt-1 block text-sm text-white/60 hover:text-white">devbhoomidesigns@gmail.com</a>
           </div>
-
+          <div>
+            <h4 className="font-bold">Policies</h4>
+            <div className="mt-3 space-y-2 text-sm text-white/60">
+              <Link href="/privacy" className="block hover:text-white">Privacy Policy</Link>
+              <Link href="/terms" className="block hover:text-white">Terms &amp; Conditions</Link>
+              <Link href="/shipping" className="block hover:text-white">Shipping Policy</Link>
+              <Link href="/refund" className="block hover:text-white">Refund Policy</Link>
+              <Link href="/faq" className="block hover:text-white">FAQ</Link>
+              <Link href="/contact" className="block hover:text-white">Contact Us</Link>
+            </div>
+          </div>
           <div>
             <h4 className="font-bold">Follow Devbhoomi</h4>
-
-            <p className="mt-3 text-sm text-white/60">
-              Instagram • YouTube • Facebook
-            </p>
+            <div className="mt-3 space-y-2 text-sm">
+              <a href="https://www.instagram.com/devbhoomi_designs?igsi=dWNod2U2MmM4Mmpp" target="_blank" rel="noreferrer" className="block text-white/70 hover:text-white">Instagram</a>
+              <a href="https://www.facebook.com/profile.php?id=61565126644260" target="_blank" rel="noreferrer" className="block text-white/70 hover:text-white">Facebook</a>
+              <a href="https://youtube.com/@devbhoomi_designs?si=ghMAhwN2C7x4BqA4" target="_blank" rel="noreferrer" className="block text-white/70 hover:text-white">YouTube</a>
+              <a href="https://wa.me/917409724257" target="_blank" rel="noreferrer" className="block font-bold text-[#8ff0aa] hover:text-white">WhatsApp</a>
+            </div>
           </div>
         </div>
-
-        <div className="mx-auto mt-10 max-w-7xl border-t border-white/10 pt-6 text-sm text-white/40">
-          © 2026 Devbhoomi Designs • Made with love in Uttarakhand
-        </div>
+        <div className="mx-auto mt-10 max-w-7xl border-t border-white/10 pt-6 text-sm text-white/40">© 2026 Devbhoomi Designs • Made with love in Uttarakhand</div>
       </footer>
 
-      {/* MOBILE BOTTOM NAV */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ead8c7] bg-[#fffaf4]/95 px-2 py-2 shadow-[0_-4px_18px_rgba(80,40,20,0.08)] backdrop-blur md:hidden">
-        <div className="mx-auto grid max-w-md grid-cols-5 text-center">
-          <a href="#" className="rounded-lg py-1.5 text-[10px] font-bold text-[#a51c24]">
-            <div className="text-base">⌂</div>Home
-          </a>
-          <a href="#shop" className="rounded-lg py-1.5 text-[10px] font-bold text-[#795c52]">
-            <div className="text-base">▣</div>Shop
-          </a>
-          <a href="#custom" className="rounded-lg py-1.5 text-[10px] font-bold text-[#795c52]">
-            <div className="text-base">✦</div>Custom
-          </a>
-          <button type="button" onClick={() => router.push("/my-orders")} className="rounded-lg py-1.5 text-[10px] font-bold text-[#795c52]">
-            <div className="text-base">📦</div>Orders
-          </button>
-          <button type="button" onClick={() => { window.location.href = user ? "/my-orders" : "/login"; }} className="rounded-lg py-1.5 text-[10px] font-bold text-[#795c52]">
-            <div className="text-base">●</div>Account
-          </button>
-        </div>
-      </nav>
+      <a href="https://wa.me/917409724257" target="_blank" rel="noreferrer" className="fixed bottom-20 right-4 z-40 rounded-full bg-[#25D366] px-5 py-3 font-bold text-white shadow-lg transition hover:scale-105 md:bottom-6 md:right-6">WhatsApp</a>
 
       {/* CART DRAWER */}
       {cartOpen && (
@@ -1396,6 +1334,17 @@ export default function Home() {
   }}
 />
       )}
+
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ead8c7] bg-white/95 px-2 pb-[max(8px,env(safe-area-inset-bottom))] pt-2 shadow-[0_-4px_18px_rgba(53,23,23,0.08)] backdrop-blur md:hidden">
+        <div className="mx-auto grid max-w-md grid-cols-5">
+          <a href="#" className="flex flex-col items-center gap-1 py-1 text-[10px] font-bold text-[#a51c24]"><HomeIcon size={20} />Home</a>
+          <a href="#shop" className="flex flex-col items-center gap-1 py-1 text-[10px] font-semibold text-[#795c52]"><Grid2X2 size={20} />Shop</a>
+          <button type="button" onClick={() => setCartOpen(true)} className="relative flex flex-col items-center gap-1 py-1 text-[10px] font-semibold text-[#795c52]"><ShoppingBag size={20} />Cart{cartCount > 0 && <span className="absolute left-1/2 top-0 ml-1 flex h-4 min-w-4 -translate-y-1/2 items-center justify-center rounded-full bg-[#a51c24] px-1 text-[9px] font-black text-white">{cartCount}</span>}</button>
+          <Link href="/my-orders" className="flex flex-col items-center gap-1 py-1 text-[10px] font-semibold text-[#795c52]"><ClipboardList size={20} />Orders</Link>
+          <button type="button" onClick={() => router.push(user ? "/my-orders" : "/login")} className="flex flex-col items-center gap-1 py-1 text-[10px] font-semibold text-[#795c52]"><User size={20} />Account</button>
+        </div>
+      </nav>
     </main>
   );
 }
