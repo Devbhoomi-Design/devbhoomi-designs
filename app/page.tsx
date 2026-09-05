@@ -513,7 +513,7 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-[#fffaf4] text-[#351717]">
+    <main className="min-h-screen bg-[#fffaf4] pb-16 text-[#351717] md:pb-0">
       {user && isAdmin && (
         <div className="mx-auto max-w-7xl px-5 pt-4">
           <AdminNav />
@@ -522,107 +522,96 @@ export default function Home() {
 
       {/* NAVBAR */}
       <header className="sticky top-0 z-40 border-b border-[#ead8c7] bg-[#fffaf4]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <a href="#" className="flex items-center gap-3">
-            <img
-              src="/devbhoomi-logo.jpeg"
-              alt="Devbhoomi Designs"
-              className="h-12 w-20 rounded-xl object-cover"
-            />
-
-            <div className="hidden sm:block">
-              <div className="text-lg font-bold tracking-wide">
-                Devbhoomi Designs
-              </div>
-              <div className="text-xs tracking-[0.25em] text-[#9b4b35]">
-                ART • HERITAGE • HIMALAYAS
-              </div>
-            </div>
-          </a>
-
-          <nav className="hidden items-center gap-8 md:flex">
-            <a href="#" className="font-semibold hover:text-[#a51c24]">
-              Home
-            </a>
-            <a
-              href="#shop"
-              className="font-semibold hover:text-[#a51c24]"
-            >
-              Shop
-            </a>
-            <a
-              href="#story"
-              className="font-semibold hover:text-[#a51c24]"
-            >
-              Our Story
-            </a>
-            <a
-              href="#custom"
-              className="font-semibold hover:text-[#a51c24]"
-            >
-              Customise
-            </a>
-          </nav>
-
-          <div className="flex items-center gap-3">
-            <div className="hidden items-center rounded-full border border-[#dcc8b5] bg-white px-3 py-2 sm:flex">
-              <Search size={18} />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search art..."
-                className="ml-2 w-28 bg-transparent text-sm outline-none"
+        <div className="mx-auto max-w-7xl px-3 py-3 sm:px-5 sm:py-4">
+          <div className="flex items-center justify-between gap-2">
+            <a href="#" className="flex min-w-0 items-center gap-2">
+              <img
+                src="/devbhoomi-logo.jpeg"
+                alt="Devbhoomi Designs"
+                className="h-11 w-16 shrink-0 rounded-xl object-cover sm:h-12 sm:w-20"
               />
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setCartOpen(true)}
-              className="relative rounded-full border border-[#dcc8b5] bg-white p-3 transition hover:scale-105"
-              aria-label="Open cart"
-            >
-              <ShoppingBag size={20} />
-
-              {cartCount > 0 && (
-                <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#a51c24] text-xs font-bold text-white">
-                  {cartCount}
-                </span>
-              )}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => router.push("/my-orders")}
-              className="hidden rounded-full border border-[#dcc8b5] bg-white px-4 py-2 text-sm font-bold text-[#321817] transition hover:border-[#a51c24] hover:text-[#a51c24] md:block"
-            >
-              📦 My Orders
-            </button>
-
-            {user ? (
-              <div className="flex items-center gap-2">
-                <span className="hidden max-w-[180px] truncate text-sm font-bold text-[#795c52] sm:block">
-                  {user.user_metadata?.full_name || user.email}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={handleLogout}
-                  className="rounded-full bg-[#a51c24] px-5 py-3 font-bold text-white transition hover:bg-[#85161d]"
-                >
-                  Sign Out
-                </button>
+              <div className="hidden sm:block">
+                <div className="text-lg font-bold tracking-wide">Devbhoomi Designs</div>
+                <div className="text-xs tracking-[0.25em] text-[#9b4b35]">
+                  ART • HERITAGE • HIMALAYAS
+                </div>
               </div>
-            ) : (
+            </a>
+
+            <nav className="hidden items-center gap-8 md:flex">
+              <a href="#" className="font-semibold hover:text-[#a51c24]">Home</a>
+              <a href="#shop" className="font-semibold hover:text-[#a51c24]">Shop</a>
+              <a href="#story" className="font-semibold hover:text-[#a51c24]">Our Story</a>
+              <a href="#custom" className="font-semibold hover:text-[#a51c24]">Customise</a>
+            </nav>
+
+            <div className="flex items-center gap-2">
+              <div className="hidden items-center rounded-full border border-[#dcc8b5] bg-white px-3 py-2 sm:flex">
+                <Search size={18} />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search art..."
+                  className="ml-2 w-28 bg-transparent text-sm outline-none"
+                />
+              </div>
+
               <button
                 type="button"
-                onClick={() => {
-                  window.location.href = "/login";
-                }}
-                className="rounded-full bg-[#a51c24] px-5 py-3 font-bold text-white transition hover:bg-[#85161d]"
+                onClick={() => setCartOpen(true)}
+                className="relative rounded-full border border-[#dcc8b5] bg-white p-2.5 sm:p-3"
+                aria-label="Open cart"
               >
-                Login
+                <ShoppingBag size={19} />
+                {cartCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#a51c24] text-xs font-bold text-white">
+                    {cartCount}
+                  </span>
+                )}
               </button>
-            )}
+
+              <button
+                type="button"
+                onClick={() => router.push("/my-orders")}
+                className="hidden rounded-full border border-[#dcc8b5] bg-white px-4 py-2 text-sm font-bold text-[#321817] md:block"
+              >
+                📦 My Orders
+              </button>
+
+              {user ? (
+                <div className="flex items-center gap-2">
+                  <span className="hidden max-w-[180px] truncate text-sm font-bold text-[#795c52] lg:block">
+                    {user.user_metadata?.full_name || user.email}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="rounded-full bg-[#a51c24] px-3 py-2.5 text-sm font-bold text-white sm:px-5 sm:py-3"
+                  >
+                    <span className="sm:hidden">Account</span>
+                    <span className="hidden sm:inline">Sign Out</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => { window.location.href = "/login"; }}
+                  className="rounded-full bg-[#a51c24] px-3 py-2.5 text-sm font-bold text-white sm:px-5 sm:py-3"
+                >
+                  Login
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center rounded-2xl border border-[#dcc8b5] bg-white px-3 py-2.5 sm:hidden">
+            <Search size={18} className="shrink-0 text-[#795c52]" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search Aipan art, gifts..."
+              className="ml-2 min-w-0 flex-1 bg-transparent text-sm outline-none"
+            />
           </div>
         </div>
       </header>
@@ -631,13 +620,13 @@ export default function Home() {
       <section className="relative overflow-hidden bg-[#a51c24] text-white">
         <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full border-[40px] border-[#d94b2b]/40" />
 
-        <div className="mx-auto grid max-w-7xl items-center gap-10 px-5 py-20 md:grid-cols-2">
+        <div className="mx-auto grid max-w-7xl items-center gap-5 px-5 py-9 sm:gap-10 sm:py-14 md:grid-cols-2 md:py-20">
           <div className="relative z-10">
-            <p className="mb-5 text-sm font-bold tracking-[0.35em] text-[#ffd99c]">
+            <p className="mb-3 text-[10px] font-bold tracking-[0.25em] text-[#ffd99c] sm:mb-5 sm:text-sm sm:tracking-[0.35em]">
               TRADITIONAL • HANDMADE • PERSONALISED
             </p>
 
-            <h1 className="text-5xl font-black leading-[0.95] md:text-7xl">
+            <h1 className="text-4xl font-black leading-[0.95] sm:text-5xl md:text-7xl">
               Art that
               <br />
               carries
@@ -649,13 +638,13 @@ export default function Home() {
               </span>
             </h1>
 
-            <p className="mt-7 max-w-xl text-lg leading-8 text-[#fff1e5]">
+            <p className="mt-5 max-w-xl text-sm leading-6 text-[#fff1e5] sm:mt-7 sm:text-lg sm:leading-8">
               Discover traditional Aipan art, personalised nameplates,
               Himalayan-inspired paintings and handcrafted gifts —
               created with love in Uttarakhand.
             </p>
 
-            <div className="mt-8 flex flex-wrap gap-4">
+            <div className="mt-6 flex flex-wrap gap-3 sm:mt-8 sm:gap-4">
               <a
                 href="#shop"
                 className="rounded-full bg-[#ffd99c] px-7 py-4 font-bold text-[#571719] transition hover:scale-105"
@@ -672,13 +661,13 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="relative flex min-h-[430px] items-center justify-center">
-            <div className="absolute h-[390px] w-[390px] rounded-[40px] border-[26px] border-[#df4a28] bg-[#9f1d25] shadow-2xl" />
+          <div className="relative flex min-h-[250px] items-center justify-center sm:min-h-[360px] md:min-h-[430px]">
+            <div className="absolute h-[230px] w-[230px] rounded-[30px] border-[16px] border-[#df4a28] bg-[#9f1d25] shadow-2xl sm:h-[330px] sm:w-[330px] sm:border-[22px] sm:rounded-[36px] md:h-[390px] md:w-[390px] md:border-[26px] md:rounded-[40px]" />
 
-            <div className="relative flex h-[310px] w-[310px] flex-col items-center justify-center rounded-full border-4 border-[#ffd99c]">
-              <div className="text-7xl text-[#ffd99c]">ॐ</div>
+            <div className="relative flex h-[180px] w-[180px] flex-col items-center justify-center rounded-full border-2 border-[#ffd99c] sm:h-[260px] sm:w-[260px] sm:border-4 md:h-[310px] md:w-[310px]">
+              <div className="text-5xl text-[#ffd99c] sm:text-6xl md:text-7xl">ॐ</div>
 
-              <div className="mt-4 text-5xl text-white">✺</div>
+              <div className="mt-2 text-3xl text-white sm:mt-4 sm:text-5xl">✺</div>
 
               <p className="mt-8 text-center text-xs font-bold tracking-[0.35em] text-[#ffd99c]">
                 AIPAN • HIMALAYAN
@@ -691,23 +680,23 @@ export default function Home() {
       </section>
 
       {/* CATEGORY */}
-      <section className="mx-auto max-w-7xl px-5 py-12">
+      <section className="mx-auto max-w-7xl px-5 py-8 sm:py-12">
         <div className="mb-7">
           <p className="text-sm font-bold tracking-[0.25em] text-[#a51c24]">
             EXPLORE
           </p>
 
-          <h2 className="mt-2 text-3xl font-black md:text-4xl">
+          <h2 className="mt-2 text-2xl font-black sm:text-3xl md:text-4xl">
             Find your piece of Uttarakhand
           </h2>
         </div>
 
-        <div className="flex gap-3 overflow-x-auto pb-3">
+        <div className="flex gap-2 overflow-x-auto pb-3 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {categories.map((category) => (
             <button
               key={category}
               onClick={() => setSelectedCategory(category)}
-              className={`whitespace-nowrap rounded-full px-5 py-3 text-sm font-bold transition ${
+              className={`whitespace-nowrap rounded-full px-4 py-2.5 text-sm font-bold transition sm:px-5 sm:py-3 ${
                 selectedCategory === category
                   ? "bg-[#a51c24] text-white"
                   : "border border-[#dcc8b5] bg-white hover:border-[#a51c24]"
@@ -720,7 +709,7 @@ export default function Home() {
       </section>
 
       {/* SHOP */}
-      <section id="shop" className="mx-auto max-w-7xl px-5 pb-20">
+      <section id="shop" className="mx-auto max-w-7xl scroll-mt-24 px-4 pb-24 sm:px-5 sm:pb-20">
         <div className="mb-8 flex items-end justify-between">
           <div>
             <p className="text-sm font-bold tracking-[0.25em] text-[#a51c24]">
@@ -737,75 +726,75 @@ export default function Home() {
           </span>
         </div>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-6 lg:grid-cols-4">
           {filteredProducts.map((product) => (
             <article
               key={product.id}
-              className="group overflow-hidden rounded-3xl border border-[#ead8c7] bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-xl"
+              className="group overflow-hidden rounded-2xl border border-[#ead8c7] bg-white shadow-sm transition duration-300 hover:-translate-y-2 hover:shadow-xl sm:rounded-3xl"
             >
               <div className="relative flex aspect-square items-center justify-center overflow-hidden bg-[#9e2025]">
-                <div className="absolute inset-5 rounded-2xl border-2 border-[#ffd99c]/50" />
-                <div className="absolute inset-10 rounded-full border border-[#ffd99c]/40" />
+                <div className="absolute inset-3 rounded-xl border border-[#ffd99c]/50 sm:inset-5 sm:rounded-2xl sm:border-2" />
+                <div className="absolute inset-7 rounded-full border border-[#ffd99c]/40 sm:inset-10" />
 
-                <div className="relative text-center">
-                  <div className="text-6xl text-[#ffd99c]">
+                <div className="relative px-2 text-center">
+                  <div className="text-4xl text-[#ffd99c] sm:text-6xl">
                     {categoryIcons[product.category] || "✦"}
                   </div>
 
-                  <div className="mt-4 text-xs font-bold tracking-[0.3em] text-white/80">
+                  <div className="mt-2 text-[9px] font-bold tracking-[0.2em] text-white/80 sm:mt-4 sm:text-xs sm:tracking-[0.3em]">
                     DEVBHOOMI
                   </div>
                 </div>
 
                 {product.badge && (
-                  <span className="absolute left-4 top-4 rounded-full bg-[#ffd99c] px-3 py-1 text-xs font-bold text-[#571719]">
+                  <span className="absolute left-2 top-2 rounded-full bg-[#ffd99c] px-2 py-1 text-[9px] font-bold text-[#571719] sm:left-4 sm:top-4 sm:px-3 sm:text-xs">
                     {product.badge}
                   </span>
                 )}
 
                 {product.in_stock === false && (
-                  <span className="absolute left-4 top-14 rounded-full bg-red-700 px-3 py-1 text-xs font-bold text-white">
+                  <span className="absolute left-2 top-11 rounded-full bg-red-700 px-2 py-1 text-[9px] font-bold text-white sm:left-4 sm:top-14 sm:px-3 sm:text-xs">
                     Out of Stock
                   </span>
                 )}
 
                 <button
                   type="button"
-                  className="absolute right-4 top-4 rounded-full bg-white/90 p-2"
+                  className="absolute right-2 top-2 rounded-full bg-white/90 p-1.5 sm:right-4 sm:top-4 sm:p-2"
                 >
                   <Heart size={17} />
                 </button>
               </div>
 
-              <div className="p-5">
-                <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">
+              <div className="p-3 sm:p-5">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-[#a56c58] sm:text-xs">
                   {product.category}
                 </p>
 
-                <h3 className="mt-2 min-h-[52px] text-lg font-bold">
+                <h3 className="mt-2 min-h-[44px] text-sm font-bold sm:min-h-[52px] sm:text-lg">
                   {product.name}
                 </h3>
 
                 <button
                   type="button"
                   onClick={() => setSelectedProduct(product)}
-                  className="mt-2 text-sm font-bold text-[#a51c24] underline underline-offset-4"
+                  className="mt-2 text-xs font-bold text-[#a51c24] underline underline-offset-4 sm:text-sm"
                 >
                   View Details
                 </button>
 
-                <div className="mt-4 flex items-center gap-2">
-                  <span className="text-xl font-black">
+                <div className="mt-3 flex flex-wrap items-center gap-1.5 sm:mt-4 sm:gap-2">
+                  <span className="text-base font-black sm:text-xl">
                     ₹{product.price.toLocaleString("en-IN")}
                   </span>
 
-                  <span className="text-sm text-gray-400 line-through">
+                  <span className="text-[10px] text-gray-400 line-through sm:text-sm">
                     ₹{product.originalPrice.toLocaleString("en-IN")}
                   </span>
                 </div>
 
                 {product.customizable && (
-                  <div className="mt-3 flex items-center gap-2 text-xs font-semibold text-[#a51c24]">
+                  <div className="mt-2 flex items-center gap-1.5 text-[10px] font-semibold text-[#a51c24] sm:mt-3 sm:gap-2 sm:text-xs">
                     <Sparkles size={14} />
                     Customisable
                   </div>
@@ -816,7 +805,7 @@ export default function Home() {
                     type="button"
                     disabled={product.in_stock === false}
                     onClick={() => openCustomize(product)}
-                    className="mt-3 w-full rounded-full border border-[#b51c24] px-5 py-3 text-sm font-bold text-[#b51c24] transition hover:bg-[#b51c24] hover:text-white disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent disabled:hover:text-gray-400"
+                    className="mt-3 w-full rounded-full border border-[#b51c24] px-3 py-2.5 text-xs font-bold sm:px-5 sm:py-3 sm:text-sm text-[#b51c24] transition hover:bg-[#b51c24] hover:text-white disabled:cursor-not-allowed disabled:border-gray-300 disabled:text-gray-400 disabled:hover:bg-transparent disabled:hover:text-gray-400"
                   >
                     ✨ Customize This Product
                   </button>
@@ -826,7 +815,7 @@ export default function Home() {
                   type="button"
                   disabled={product.in_stock === false}
                   onClick={() => addToCart(product.id)}
-                  className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-[#351717] px-4 py-3 font-bold text-white transition hover:bg-[#a51c24] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600"
+                  className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-full bg-[#351717] px-3 py-2.5 text-sm font-bold text-white sm:mt-5 sm:gap-2 sm:px-4 sm:py-3 transition hover:bg-[#a51c24] disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-600"
                 >
                   <ShoppingBag size={17} />
                   {product.in_stock === false ? "Out of Stock" : "Add to Cart"}
@@ -847,7 +836,7 @@ export default function Home() {
       </section>
 
       {/* CUSTOM SECTION */}
-      <section id="custom" className="scroll-mt-24 bg-[#f1dfcd] px-5 py-20">
+      <section id="custom" className="scroll-mt-24 bg-[#f1dfcd] px-5 py-12 sm:py-20">
         <div className="mx-auto max-w-6xl">
           <div className="text-center">
             <p className="text-sm font-bold tracking-[0.3em] text-[#a51c24]">
@@ -864,9 +853,9 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="mt-12 grid gap-8 md:grid-cols-2">
+          <div className="mt-8 grid gap-6 sm:mt-12 sm:gap-8 md:grid-cols-2">
             {/* LEFT */}
-            <div className="rounded-3xl bg-[#9f1720] p-8 text-white shadow-xl">
+            <div className="rounded-3xl bg-[#9f1720] p-6 text-white shadow-xl sm:p-8">
               <p className="text-sm font-bold tracking-[0.25em] text-[#ffd99b]">
                 DEV BHOOMI • HANDMADE • PERSONAL
               </p>
@@ -912,7 +901,7 @@ export default function Home() {
             </div>
 
             {/* RIGHT - CUSTOM FORM */}
-            <div className="rounded-3xl border border-[#d8b9a4] bg-[#fffaf5] p-7 shadow-xl">
+            <div className="rounded-3xl border border-[#d8b9a4] bg-[#fffaf5] p-5 shadow-xl sm:p-7">
               <div className="mb-6">
                 <p className="text-sm font-bold tracking-widest text-[#a51c24]">
                   START CREATING
@@ -1066,7 +1055,7 @@ export default function Home() {
       </section>
 
       {/* STORY */}
-      <section id="story" className="mx-auto max-w-7xl px-5 py-20">
+      <section id="story" className="mx-auto max-w-7xl px-5 py-12 sm:py-20">
         <div className="grid gap-10 md:grid-cols-2 md:items-center">
           <div>
             <p className="text-sm font-bold tracking-[0.3em] text-[#a51c24]">
@@ -1195,6 +1184,46 @@ export default function Home() {
       >
         WhatsApp
       </a>
+
+      {/* MOBILE BOTTOM NAVIGATION */}
+      <nav className="fixed bottom-0 left-0 right-0 z-40 border-t border-[#ead8c7] bg-[#fffaf4]/95 px-2 py-2 shadow-[0_-6px_20px_rgba(53,23,23,0.08)] backdrop-blur md:hidden">
+        <div className="mx-auto grid max-w-md grid-cols-5">
+          <a href="#" className="flex flex-col items-center gap-1 py-1 text-[10px] font-bold text-[#a51c24]">
+            <span className="text-lg leading-none">⌂</span>
+            Home
+          </a>
+          <a href="#shop" className="flex flex-col items-center gap-1 py-1 text-[10px] font-bold text-[#795c52]">
+            <ShoppingBag size={18} />
+            Shop
+          </a>
+          <a href="#custom" className="flex flex-col items-center gap-1 py-1 text-[10px] font-bold text-[#795c52]">
+            <Sparkles size={18} />
+            Custom
+          </a>
+          <button
+            type="button"
+            onClick={() => router.push("/my-orders")}
+            className="flex flex-col items-center gap-1 py-1 text-[10px] font-bold text-[#795c52]"
+          >
+            <span className="text-lg leading-none">📦</span>
+            Orders
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (user) {
+                router.push("/my-orders");
+              } else {
+                window.location.href = "/login";
+              }
+            }}
+            className="flex flex-col items-center gap-1 py-1 text-[10px] font-bold text-[#795c52]"
+          >
+            <span className="text-lg leading-none">●</span>
+            Account
+          </button>
+        </div>
+      </nav>
 
       {/* CART DRAWER */}
       {cartOpen && (
