@@ -128,6 +128,15 @@ export default function AdminProductsPage() {
 
     setSaving(true);
 
+    // Always save the complete gallery as an array.
+    // The first photo is also kept in the legacy `image` column for compatibility.
+    const galleryImages = form.image_urls
+      .map((url) => url.trim())
+      .filter(Boolean)
+      .slice(0, 5);
+
+    const primaryImage = (galleryImages[0] || form.image.trim()).trim() || null;
+
     const productData = {
       name: form.name.trim(),
       category: form.category.trim(),
@@ -136,8 +145,8 @@ export default function AdminProductsPage() {
       description: form.description.trim(),
       badge: form.badge.trim() || null,
       customizable: form.customizable,
-      image: (form.image_urls[0] || form.image).trim() || null,
-      image_urls: form.image_urls.filter(Boolean),
+      image: primaryImage,
+      image_urls: galleryImages.length > 0 ? galleryImages : primaryImage ? [primaryImage] : [],
       in_stock: form.in_stock,
       updated_at: new Date().toISOString(),
     };
@@ -154,13 +163,33 @@ export default function AdminProductsPage() {
         console.error("Update error:", error);
         alert("Could not update product.");
       } else {
+        // Use the exact row returned by Supabase so the admin screen immediately
+        // reflects what was actually saved in the database.
+        const savedGallery = Array.isArray(data.image_urls)
+          ? data.image_urls.filter(
+              (url: unknown): url is string =>
+                typeof url === "string" && url.trim().length > 0
+            )
+          : data.image
+            ? [data.image]
+            : [];
+
+        const normalizedData: Product = {
+          ...data,
+          image_urls: savedGallery,
+        };
+
         setProducts((current) =>
           current.map((product) =>
-            product.id === editingId ? data : product
+            product.id === editingId ? normalizedData : product
           )
         );
 
-        alert("Product updated successfully.");
+        alert(
+          `Product updated successfully. ${savedGallery.length} photo${
+            savedGallery.length === 1 ? "" : "s"
+          } saved.`
+        );
         resetForm();
       }
     } else {
@@ -174,9 +203,25 @@ export default function AdminProductsPage() {
         console.error("Insert error:", error);
         alert("Could not add product.");
       } else {
-        setProducts((current) => [...current, data]);
+        const savedGallery = Array.isArray(data.image_urls)
+          ? data.image_urls.filter(
+              (url: unknown): url is string =>
+                typeof url === "string" && url.trim().length > 0
+            )
+          : data.image
+            ? [data.image]
+            : [];
 
-        alert("Product added successfully.");
+        setProducts((current) => [
+          ...current,
+          { ...data, image_urls: savedGallery },
+        ]);
+
+        alert(
+          `Product added successfully. ${savedGallery.length} photo${
+            savedGallery.length === 1 ? "" : "s"
+          } saved.`
+        );
         resetForm();
       }
     }
@@ -444,6 +489,9 @@ export default function AdminProductsPage() {
                     try {
                       const uploadedUrls: string[] = [];
 
+                      // Upload every selected file before changing the form state.
+                      // This prevents a multi-file selection from being replaced by
+                      // a later state update.
                       for (const file of files) {
                         const extension =
                           file.name.split(".").pop()?.toLowerCase() || "jpg";

@@ -42,6 +42,7 @@ export default function ProductDetails({
   const [instructions, setInstructions] = useState("");
   const [referenceImage, setReferenceImage] = useState<File | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
 
   // Use the new gallery when available.
   // Fall back to the existing single product image for older products.
@@ -73,6 +74,32 @@ export default function ProductDetails({
     setSelectedImage((current) =>
       current === galleryImages.length - 1 ? 0 : current + 1
     );
+  };
+
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (galleryImages.length <= 1) return;
+    setTouchStartX(event.touches[0]?.clientX ?? null);
+  };
+
+  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (touchStartX === null || galleryImages.length <= 1) {
+      setTouchStartX(null);
+      return;
+    }
+
+    const touchEndX = event.changedTouches[0]?.clientX ?? touchStartX;
+    const distance = touchStartX - touchEndX;
+
+    // Require a clear horizontal swipe so normal scrolling/tapping is unaffected.
+    if (Math.abs(distance) >= 50) {
+      if (distance > 0) {
+        goToNextImage();
+      } else {
+        goToPreviousImage();
+      }
+    }
+
+    setTouchStartX(null);
   };
 
   const increase = () => {
@@ -128,7 +155,11 @@ export default function ProductDetails({
         <div className="grid md:grid-cols-2">
           {/* IMAGE GALLERY */}
           <div className="bg-[#f7eadc] p-4 sm:p-6 md:p-8">
-            <div className="relative flex h-[360px] w-full items-center justify-center overflow-hidden rounded-2xl bg-white sm:h-[430px]">
+            <div
+              className="relative flex h-[360px] w-full touch-pan-y items-center justify-center overflow-hidden rounded-2xl bg-white sm:h-[430px]"
+              onTouchStart={handleTouchStart}
+              onTouchEnd={handleTouchEnd}
+            >
               {currentImage ? (
                 <>
                   <img
@@ -216,7 +247,7 @@ export default function ProductDetails({
 
             {galleryImages.length > 1 && (
               <p className="mt-2 text-center text-xs text-[#795c52]">
-                Swipe on mobile or use the arrows to view all photos
+                Swipe left/right on mobile or use the arrows to view all photos
               </p>
             )}
           </div>
