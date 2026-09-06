@@ -1,36 +1,98 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Devbhoomi Designs 🏔️
 
-## Getting Started
+A modern, responsive e-commerce website created for a Uttarakhand handicraft business, focused on showcasing and selling handcrafted Aipan and Himalayan-inspired products.
 
-First, run the development server:
+## 🌐 Live Website
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+**https://devbhoomidesign.vercel.app**
+
+## ✨ Features
+
+### Customer Experience
+- Responsive desktop and mobile UI
+- Product catalogue
+- Product search and categories
+- Multi-photo product gallery
+- Mobile swipe-friendly product images
+- Product customization
+- Customer signup and login
+- Shopping cart
+- Order placement
+- Order history
+- Order tracking
+- Stock availability
+- Custom product requests
+- WhatsApp support
+
+### Admin Dashboard
+- Secure admin access
+- Add, edit and delete products
+- Product pricing management
+- Stock availability management
+- Upload up to 5 product photos
+- Set a primary product image
+- Manage customer orders
+- Update order status
+- View custom product requests
+
+## 🛠️ Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| Next.js | Frontend and application framework |
+| React | UI components |
+| TypeScript | Type-safe development |
+| Tailwind CSS | Responsive styling |
+| Supabase | Authentication, database and storage |
+| PostgreSQL | Application database |
+| Vercel | Deployment |
+
+## 🏗️ Architecture
+
+```text
+Customer
+   ↓
+Next.js / React
+   ↓
+Supabase
+ ├── Authentication
+ ├── PostgreSQL Database
+ └── Storage
+   ↓
+Admin Dashboard
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 📱 Responsive Design
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+The website is designed for customers using both desktop and mobile devices.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The product details page includes a mobile-friendly image gallery with:
+- Swipe navigation
+- Previous/Next controls
+- Photo counter
+- Thumbnail navigation
 
-## Learn More
+## 🔐 Security
 
-To learn more about Next.js, take a look at the following resources:
+The application uses Supabase Authentication and Row Level Security policies to control access to customer orders, admin functionality, and custom requests.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Sensitive environment variables are kept outside the repository.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🚀 Deployment
 
-## Deploy on Vercel
+The application is deployed with **Vercel** and uses **Supabase** as its backend platform.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 👨‍💻 Developer
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Vishal Gupta**
+
+PGDM — Business Analytics & Finance  
+IBI Greater Noida
+
+GitHub: https://github.com/vishal2131gupta-crypto
+
+---
+
+### Project Purpose
+
+This project combines business requirements, user experience, database design, authentication, responsive development, and deployment into a real-world e-commerce solution for a small business.
