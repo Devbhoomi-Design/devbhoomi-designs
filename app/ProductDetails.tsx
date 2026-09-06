@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   X,
   Plus,
@@ -42,7 +42,7 @@ export default function ProductDetails({
   const [instructions, setInstructions] = useState("");
   const [referenceImage, setReferenceImage] = useState<File | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
-  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const galleryRef = useRef<HTMLDivElement>(null);
 
   // Use the new gallery when available.
   // Fall back to the existing single product image for older products.
@@ -58,48 +58,48 @@ export default function ProductDetails({
     )
   );
 
-  const currentImage = galleryImages[selectedImage] || galleryImages[0] || "";
+  useEffect(() => {
+    const gallery = galleryRef.current;
+    if (!gallery || galleryImages.length <= 1) return;
+
+    const handleScroll = () => {
+      const width = gallery.clientWidth;
+      if (!width) return;
+
+      const index = Math.round(gallery.scrollLeft / width);
+      setSelectedImage(Math.min(index, galleryImages.length - 1));
+    };
+
+    gallery.addEventListener("scroll", handleScroll, { passive: true });
+    return () => gallery.removeEventListener("scroll", handleScroll);
+  }, [galleryImages.length]);
+
+  const scrollToImage = (index: number) => {
+    if (!galleryRef.current || galleryImages.length <= 1) {
+      setSelectedImage(index);
+      return;
+    }
+
+    const safeIndex = Math.max(0, Math.min(index, galleryImages.length - 1));
+    galleryRef.current.scrollTo({
+      left: safeIndex * galleryRef.current.clientWidth,
+      behavior: "smooth",
+    });
+    setSelectedImage(safeIndex);
+  };
 
   const goToPreviousImage = () => {
     if (galleryImages.length <= 1) return;
-
-    setSelectedImage((current) =>
-      current === 0 ? galleryImages.length - 1 : current - 1
+    scrollToImage(
+      selectedImage === 0 ? galleryImages.length - 1 : selectedImage - 1
     );
   };
 
   const goToNextImage = () => {
     if (galleryImages.length <= 1) return;
-
-    setSelectedImage((current) =>
-      current === galleryImages.length - 1 ? 0 : current + 1
+    scrollToImage(
+      selectedImage === galleryImages.length - 1 ? 0 : selectedImage + 1
     );
-  };
-
-  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (galleryImages.length <= 1) return;
-    setTouchStartX(event.touches[0]?.clientX ?? null);
-  };
-
-  const handleTouchEnd = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (touchStartX === null || galleryImages.length <= 1) {
-      setTouchStartX(null);
-      return;
-    }
-
-    const touchEndX = event.changedTouches[0]?.clientX ?? touchStartX;
-    const distance = touchStartX - touchEndX;
-
-    // Require a clear horizontal swipe so normal scrolling/tapping is unaffected.
-    if (Math.abs(distance) >= 50) {
-      if (distance > 0) {
-        goToNextImage();
-      } else {
-        goToPreviousImage();
-      }
-    }
-
-    setTouchStartX(null);
   };
 
   const increase = () => {
@@ -155,81 +155,89 @@ export default function ProductDetails({
         <div className="grid md:grid-cols-2">
           {/* IMAGE GALLERY */}
           <div className="bg-[#f7eadc] p-4 sm:p-6 md:p-8">
-            <div
-              className="relative flex h-[360px] w-full touch-pan-y items-center justify-center overflow-hidden rounded-2xl bg-white sm:h-[430px]"
-              onTouchStart={handleTouchStart}
-              onTouchEnd={handleTouchEnd}
-            >
-              {currentImage ? (
-                <>
-                  <img
-                    src={currentImage}
-                    alt={`${product.name} - photo ${selectedImage + 1}`}
-                    className="h-full w-full object-contain p-3 sm:p-5"
-                    onError={(event) => {
-                      event.currentTarget.style.display = "none";
-                    }}
-                  />
-
-                  {galleryImages.length > 1 && (
-                    <>
-                      <button
-                        type="button"
-                        onClick={goToPreviousImage}
-                        aria-label="Previous product photo"
-                        className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-[#dcc8b5] bg-white/95 p-2.5 shadow-md transition hover:bg-[#fffaf4]"
-                      >
-                        <ChevronLeft size={22} />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={goToNextImage}
-                        aria-label="Next product photo"
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-[#dcc8b5] bg-white/95 p-2.5 shadow-md transition hover:bg-[#fffaf4]"
-                      >
-                        <ChevronRight size={22} />
-                      </button>
-
-                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
-                        {selectedImage + 1} / {galleryImages.length}
-                      </div>
-                    </>
-                  )}
-                </>
-              ) : (
-                <div className="flex h-full w-full items-center justify-center bg-[#9e2025]">
-                  <div className="text-center">
-                    <div className="text-8xl text-[#ffd99c]">
-                      {product.category === "Pooja Collection"
-                        ? "ॐ"
-                        : product.category === "Mandala Art"
-                          ? "✹"
-                          : "✺"}
+            <div className="relative overflow-hidden rounded-2xl bg-white">
+              <div
+                ref={galleryRef}
+                className="flex h-[280px] w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] sm:h-[430px] [&::-webkit-scrollbar]:hidden"
+                aria-label="Product photo gallery"
+              >
+                {galleryImages.length > 0 ? (
+                  galleryImages.map((image, index) => (
+                    <div
+                      key={`${image}-${index}`}
+                      className="flex h-full w-full min-w-full shrink-0 snap-center items-center justify-center"
+                    >
+                      <img
+                        src={image}
+                        alt={`${product.name} - photo ${index + 1}`}
+                        draggable={false}
+                        className="h-full w-full select-none object-contain p-3 sm:p-5"
+                        onError={(event) => {
+                          event.currentTarget.style.display = "none";
+                        }}
+                      />
                     </div>
+                  ))
+                ) : (
+                  <div className="flex h-full w-full min-w-full items-center justify-center bg-[#9e2025]">
+                    <div className="text-center">
+                      <div className="text-8xl text-[#ffd99c]">
+                        {product.category === "Pooja Collection"
+                          ? "ॐ"
+                          : product.category === "Mandala Art"
+                            ? "✹"
+                            : "✺"}
+                      </div>
 
-                    <p className="mt-6 text-xs font-bold tracking-[0.35em] text-white">
-                      DEVBHOOMI
-                    </p>
+                      <p className="mt-6 text-xs font-bold tracking-[0.35em] text-white">
+                        DEVBHOOMI
+                      </p>
 
-                    <p className="mt-2 text-xs tracking-[0.2em] text-[#ffd99c]">
-                      AIPAN • HANDMADE
-                    </p>
+                      <p className="mt-2 text-xs tracking-[0.2em] text-[#ffd99c]">
+                        AIPAN • HANDMADE
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
+              </div>
+
+              {galleryImages.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={goToPreviousImage}
+                    aria-label="Previous product photo"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full border border-[#dcc8b5] bg-white/95 p-2.5 shadow-md active:scale-95"
+                  >
+                    <ChevronLeft size={20} />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={goToNextImage}
+                    aria-label="Next product photo"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full border border-[#dcc8b5] bg-white/95 p-2.5 shadow-md active:scale-95"
+                  >
+                    <ChevronRight size={20} />
+                  </button>
+
+                  <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-semibold text-white">
+                    {selectedImage + 1} / {galleryImages.length}
+                  </div>
+                </>
               )}
             </div>
 
             {/* THUMBNAILS */}
             {galleryImages.length > 1 && (
-              <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
+              <div className="mt-4 grid grid-cols-5 gap-2 pb-1 sm:flex sm:gap-3 sm:overflow-x-auto">
                 {galleryImages.map((image, index) => (
                   <button
                     key={`${image}-${index}`}
                     type="button"
-                    onClick={() => setSelectedImage(index)}
+                    onClick={() => scrollToImage(index)}
                     aria-label={`View product photo ${index + 1}`}
-                    className={`h-20 w-20 shrink-0 overflow-hidden rounded-xl border-2 bg-white transition sm:h-24 sm:w-24 ${
+                    className={`h-12 w-full shrink-0 sm:h-24 sm:w-24 overflow-hidden rounded-xl border-2 bg-white transition ${
                       selectedImage === index
                         ? "border-[#a51c24] ring-2 ring-[#a51c24]/20"
                         : "border-[#dcc8b5] hover:border-[#a51c24]"
@@ -238,6 +246,7 @@ export default function ProductDetails({
                     <img
                       src={image}
                       alt={`${product.name} thumbnail ${index + 1}`}
+                      draggable={false}
                       className="h-full w-full object-contain p-1"
                     />
                   </button>
@@ -246,8 +255,8 @@ export default function ProductDetails({
             )}
 
             {galleryImages.length > 1 && (
-              <p className="mt-2 text-center text-xs text-[#795c52]">
-                Swipe left/right on mobile or use the arrows to view all photos
+              <p className="mt-2 text-center text-[11px] leading-4 text-[#795c52] sm:text-xs">
+                Swipe left/right on your phone • Tap a photo below to jump to it
               </p>
             )}
           </div>
