@@ -33,6 +33,7 @@ type CartItem = {
 
 type Product = (typeof products)[number] & {
   in_stock?: boolean;
+  image_urls?: string[];
 };
 
 const categoryIcons: Record<string, string> = {
@@ -58,7 +59,7 @@ const legacyProductImages: Record<string, string> = {
 };
 
 const getProductImage = (product: Product) =>
-  product.image?.trim() || legacyProductImages[product.name] || "";
+  product.image?.trim() || product.image_urls?.[0]?.trim() || legacyProductImages[product.name] || "";
 
 export default function Home() {
   const router = useRouter();
@@ -226,6 +227,14 @@ export default function Home() {
           badge: product.badge ?? undefined,
           customizable: Boolean(product.customizable),
           image: product.image ?? "",
+          image_urls: Array.isArray(product.image_urls)
+            ? product.image_urls.filter(
+                (image: unknown): image is string =>
+                  typeof image === "string" && image.trim().length > 0
+              )
+            : product.image
+              ? [product.image]
+              : [],
           in_stock: product.in_stock ?? true,
         }));
 

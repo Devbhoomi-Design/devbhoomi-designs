@@ -13,6 +13,7 @@ type Product = {
   badge: string | null;
   customizable: boolean;
   image: string | null;
+  image_urls: string[] | null;
   in_stock: boolean;
 };
 
@@ -25,6 +26,7 @@ const emptyProduct = {
   badge: "",
   customizable: false,
   image: "",
+  image_urls: [] as string[],
   in_stock: true,
 };
 
@@ -134,7 +136,8 @@ export default function AdminProductsPage() {
       description: form.description.trim(),
       badge: form.badge.trim() || null,
       customizable: form.customizable,
-      image: form.image.trim() || null,
+      image: (form.image_urls[0] || form.image).trim() || null,
+      image_urls: form.image_urls.filter(Boolean),
       in_stock: form.in_stock,
       updated_at: new Date().toISOString(),
     };
@@ -194,6 +197,12 @@ export default function AdminProductsPage() {
       badge: product.badge || "",
       customizable: product.customizable,
       image: product.image || "",
+      image_urls:
+        product.image_urls && product.image_urls.length > 0
+          ? product.image_urls
+          : product.image
+            ? [product.image]
+            : [],
       in_stock: product.in_stock ?? true,
     });
 
@@ -380,60 +389,108 @@ export default function AdminProductsPage() {
               />
             </div>
 
-            {/* PRODUCT IMAGE UPLOAD */}
-            <div>
+            {/* PRODUCT IMAGE GALLERY */}
+            <div className="md:col-span-2">
               <label className="font-bold text-[#321817]">
-                Product Image
+                Product Photos
               </label>
 
               <div className="mt-2 rounded-2xl border border-[#dcc8b5] bg-[#fffaf4] p-4">
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/jpg"
+                  multiple
                   onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
+                    const files = Array.from(e.target.files || []);
 
-                    if (!file.type.startsWith("image/")) {
-                      alert("Please select an image file.");
+                    if (!files.length) return;
+
+                    const remainingSlots = 5 - form.image_urls.length;
+
+                    if (remainingSlots <= 0) {
+                      alert("You can upload a maximum of 5 product photos.");
+                      e.target.value = "";
                       return;
                     }
 
-                    if (file.size > 10 * 1024 * 1024) {
-                      alert("Please choose an image smaller than 10 MB.");
+                    if (files.length > remainingSlots) {
+                      alert(
+                        `You can add only ${remainingSlots} more photo${
+                          remainingSlots === 1 ? "" : "s"
+                        }. Maximum is 5 photos per product.`
+                      );
+                      e.target.value = "";
                       return;
+                    }
+
+                    for (const file of files) {
+                      if (!file.type.startsWith("image/")) {
+                        alert("Please select image files only.");
+                        e.target.value = "";
+                        return;
+                      }
+
+                      if (file.size > 10 * 1024 * 1024) {
+                        alert(
+                          `Please choose an image smaller than 10 MB: ${file.name}`
+                        );
+                        e.target.value = "";
+                        return;
+                      }
                     }
 
                     setUploadingImage(true);
 
                     try {
-                      const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-                      const filePath = `products/${crypto.randomUUID()}.${extension}`;
+                      const uploadedUrls: string[] = [];
 
-                      const { error: uploadError } = await supabase.storage
-                        .from("product-images")
-                        .upload(filePath, file, {
-                          cacheControl: "3600",
-                          upsert: false,
-                          contentType: file.type,
-                        });
+                      for (const file of files) {
+                        const extension =
+                          file.name.split(".").pop()?.toLowerCase() || "jpg";
 
-                      if (uploadError) {
-                        console.error("Image upload error:", uploadError);
-                        alert(`Could not upload image: ${uploadError.message}`);
-                        return;
+                        const filePath = `products/${crypto.randomUUID()}.${extension}`;
+
+                        const { error: uploadError } = await supabase.storage
+                          .from("product-images")
+                          .upload(filePath, file, {
+                            cacheControl: "3600",
+                            upsert: false,
+                            contentType: file.type,
+                          });
+
+                        if (uploadError) {
+                          console.error("Image upload error:", uploadError);
+                          alert(
+                            `Could not upload ${file.name}: ${uploadError.message}`
+                          );
+                          return;
+                        }
+
+                        const { data } = supabase.storage
+                          .from("product-images")
+                          .getPublicUrl(filePath);
+
+                        uploadedUrls.push(data.publicUrl);
                       }
 
-                      const { data } = supabase.storage
-                        .from("product-images")
-                        .getPublicUrl(filePath);
+                      setForm((current) => {
+                        const combined = [
+                          ...current.image_urls,
+                          ...uploadedUrls,
+                        ].slice(0, 5);
 
-                      setForm((current) => ({
-                        ...current,
-                        image: data.publicUrl,
-                      }));
+                        return {
+                          ...current,
+                          image_urls: combined,
+                          image: combined[0] || "",
+                        };
+                      });
 
-                      alert("Product image uploaded successfully.");
+                      alert(
+                        `${uploadedUrls.length} product photo${
+                          uploadedUrls.length === 1 ? "" : "s"
+                        } uploaded successfully.`
+                      );
                     } finally {
                       setUploadingImage(false);
                       e.target.value = "";
@@ -443,37 +500,113 @@ export default function AdminProductsPage() {
                 />
 
                 <p className="mt-2 text-xs text-[#795c52]">
-                  JPG, PNG or WebP • Maximum 10 MB • The original image is uploaded without resizing.
+                  Upload up to 5 photos • JPG, PNG or WebP • Maximum 10 MB each
+                  • The first photo is the main product photo.
                 </p>
 
                 {uploadingImage && (
                   <p className="mt-3 text-sm font-bold text-[#a51c24]">
-                    Uploading image...
+                    Uploading product photos...
                   </p>
                 )}
 
-                {form.image && (
-                  <div className="mt-4 overflow-hidden rounded-xl border border-[#ead8c7] bg-white p-2">
-                    <img
-                      src={form.image}
-                      alt="Product preview"
-                      className="h-48 w-full object-contain"
-                    />
-                    <p className="mt-2 text-xs font-bold text-green-700">
-                      ✓ Image ready for this product
+                {form.image_urls.length > 0 && (
+                  <div className="mt-5">
+                    <p className="mb-3 text-sm font-bold text-[#321817]">
+                      Product Gallery ({form.image_urls.length}/5)
                     </p>
+
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+                      {form.image_urls.map((image, index) => (
+                        <div
+                          key={`${image}-${index}`}
+                          className="overflow-hidden rounded-xl border border-[#ead8c7] bg-white"
+                        >
+                          <div className="relative h-32">
+                            <img
+                              src={image}
+                              alt={`${form.name || "Product"} photo ${
+                                index + 1
+                              }`}
+                              className="h-full w-full object-contain p-1"
+                            />
+
+                            {index === 0 && (
+                              <span className="absolute left-2 top-2 rounded-full bg-[#a51c24] px-2 py-1 text-[10px] font-black text-white">
+                                MAIN
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-1 p-2">
+                            {index !== 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setForm((current) => {
+                                    const images = [...current.image_urls];
+                                    const [selected] = images.splice(index, 1);
+                                    images.unshift(selected);
+
+                                    return {
+                                      ...current,
+                                      image_urls: images,
+                                      image: images[0] || "",
+                                    };
+                                  });
+                                }}
+                                className="rounded-lg border border-[#dcc8b5] px-2 py-1 text-xs font-bold text-[#321817] hover:bg-[#f7eadc]"
+                              >
+                                Make Main
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setForm((current) => {
+                                  const images = current.image_urls.filter(
+                                    (_, imageIndex) => imageIndex !== index
+                                  );
+
+                                  return {
+                                    ...current,
+                                    image_urls: images,
+                                    image: images[0] || "",
+                                  };
+                                });
+                              }}
+                              className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
-              </div>
 
-              {/* Optional manual URL for existing/legacy products */}
-              <input
-                name="image"
-                value={form.image}
-                onChange={handleChange}
-                placeholder="Or paste an image URL"
-                className="mt-3 w-full rounded-xl border border-[#dcc8b5] px-4 py-3 text-sm outline-none focus:border-[#a51c24]"
-              />
+                {/* Optional manual URL for existing/legacy products */}
+                <input
+                  name="image"
+                  value={form.image}
+                  onChange={(e) => {
+                    const value = e.target.value;
+
+                    setForm((current) => ({
+                      ...current,
+                      image: value,
+                      image_urls:
+                        value.trim() && current.image_urls.length === 0
+                          ? [value.trim()]
+                          : current.image_urls,
+                    }));
+                  }}
+                  placeholder="Or paste a main image URL"
+                  className="mt-4 w-full rounded-xl border border-[#dcc8b5] px-4 py-3 text-sm outline-none focus:border-[#a51c24]"
+                />
+              </div>
             </div>
 
             {/* DESCRIPTION */}
@@ -595,6 +728,12 @@ export default function AdminProductsPage() {
                     <span className="mt-3 inline-block rounded-full bg-[#fff0df] px-3 py-1 text-xs font-bold text-[#a51c24]">
                       {product.badge}
                     </span>
+                  )}
+
+                  {product.image_urls && product.image_urls.length > 1 && (
+                    <p className="mt-2 text-xs font-bold text-[#795c52]">
+                      📸 {product.image_urls.length} product photos
+                    </p>
                   )}
 
                   {product.customizable && (
