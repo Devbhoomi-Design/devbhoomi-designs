@@ -230,14 +230,14 @@ export default function ProductDetails({
 
             {/* THUMBNAILS */}
             {galleryImages.length > 1 && (
-              <div className="mt-4 grid grid-cols-5 gap-2 pb-1 sm:flex sm:gap-3 sm:overflow-x-auto">
+              <div className="mt-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:gap-3">
                 {galleryImages.map((image, index) => (
                   <button
                     key={`${image}-${index}`}
                     type="button"
                     onClick={() => scrollToImage(index)}
                     aria-label={`View product photo ${index + 1}`}
-                    className={`h-12 w-full shrink-0 sm:h-24 sm:w-24 overflow-hidden rounded-xl border-2 bg-white transition ${
+                    className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl sm:h-24 sm:w-24 border-2 bg-white transition ${
                       selectedImage === index
                         ? "border-[#a51c24] ring-2 ring-[#a51c24]/20"
                         : "border-[#dcc8b5] hover:border-[#a51c24]"

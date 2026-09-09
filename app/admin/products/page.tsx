@@ -133,7 +133,7 @@ export default function AdminProductsPage() {
     const galleryImages = form.image_urls
       .map((url) => url.trim())
       .filter(Boolean)
-      .slice(0, 5);
+      .slice(0, 10);
 
     const primaryImage = (galleryImages[0] || form.image.trim()).trim() || null;
 
@@ -450,10 +450,10 @@ export default function AdminProductsPage() {
 
                     if (!files.length) return;
 
-                    const remainingSlots = 5 - form.image_urls.length;
+                    const remainingSlots = 10 - form.image_urls.length;
 
                     if (remainingSlots <= 0) {
-                      alert("You can upload a maximum of 5 product photos.");
+                      alert("You can upload a maximum of 10 product photos.");
                       e.target.value = "";
                       return;
                     }
@@ -462,7 +462,7 @@ export default function AdminProductsPage() {
                       alert(
                         `You can add only ${remainingSlots} more photo${
                           remainingSlots === 1 ? "" : "s"
-                        }. Maximum is 5 photos per product.`
+                        }. Maximum is 10 photos per product.`
                       );
                       e.target.value = "";
                       return;
@@ -525,7 +525,7 @@ export default function AdminProductsPage() {
                         const combined = [
                           ...current.image_urls,
                           ...uploadedUrls,
-                        ].slice(0, 5);
+                        ].slice(0, 10);
 
                         return {
                           ...current,
@@ -548,7 +548,7 @@ export default function AdminProductsPage() {
                 />
 
                 <p className="mt-2 text-xs text-[#795c52]">
-                  Upload up to 5 photos • JPG, PNG or WebP • Maximum 10 MB each
+                  Upload up to 10 photos • JPG, PNG or WebP • Maximum 10 MB each
                   • The first photo is the main product photo.
                 </p>
 
@@ -561,7 +561,7 @@ export default function AdminProductsPage() {
                 {form.image_urls.length > 0 && (
                   <div className="mt-5">
                     <p className="mb-3 text-sm font-bold text-[#321817]">
-                      Product Gallery ({form.image_urls.length}/5)
+                      Product Gallery ({form.image_urls.length}/10)
                     </p>
 
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
