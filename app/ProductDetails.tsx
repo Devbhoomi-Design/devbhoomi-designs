@@ -127,12 +127,12 @@ export default function ProductDetails({
   };
 
   return (
-    <div className="fixed inset-0 z-[60] overflow-y-auto bg-black/60 p-4 md:p-8">
-      <div className="mx-auto max-w-5xl overflow-hidden rounded-3xl bg-[#fffaf4] shadow-2xl">
+    <div className="fixed inset-0 z-[60] overflow-y-auto overflow-x-hidden bg-black/60 p-2 sm:p-4 md:p-8">
+      <div className="mx-auto w-full max-w-5xl min-w-0 overflow-hidden rounded-2xl bg-[#fffaf4] shadow-2xl sm:rounded-3xl">
         {/* HEADER */}
-        <div className="flex items-center justify-between border-b border-[#ead8c7] px-5 py-4">
-          <div>
-            <p className="text-xs font-bold tracking-[0.25em] text-[#a51c24]">
+        <div className="flex min-w-0 items-center justify-between gap-3 border-b border-[#ead8c7] px-4 py-4 sm:px-5">
+          <div className="min-w-0">
+            <p className="truncate text-xs font-bold tracking-[0.2em] text-[#a51c24] sm:tracking-[0.25em]">
               DEVBHOOMI DESIGNS
             </p>
 
@@ -152,20 +152,20 @@ export default function ProductDetails({
         </div>
 
         {/* PRODUCT */}
-        <div className="grid md:grid-cols-2">
+        <div className="grid min-w-0 md:grid-cols-2">
           {/* IMAGE GALLERY */}
-          <div className="bg-[#f7eadc] p-4 sm:p-6 md:p-8">
+          <div className="min-w-0 bg-[#f7eadc] p-3 sm:p-6 md:p-8">
             <div className="relative overflow-hidden rounded-2xl bg-white">
               <div
                 ref={galleryRef}
-                className="flex h-[280px] w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth [scrollbar-width:none] [-ms-overflow-style:none] sm:h-[430px] [&::-webkit-scrollbar]:hidden"
+                className="flex h-[260px] w-full min-w-0 snap-x snap-mandatory overflow-x-auto overflow-y-hidden overscroll-x-contain scroll-smooth touch-pan-x [scrollbar-width:none] [-ms-overflow-style:none] sm:h-[430px] [&::-webkit-scrollbar]:hidden"
                 aria-label="Product photo gallery"
               >
                 {galleryImages.length > 0 ? (
                   galleryImages.map((image, index) => (
                     <div
                       key={`${image}-${index}`}
-                      className="flex h-full w-full min-w-full shrink-0 snap-center items-center justify-center"
+                      className="flex h-full w-full min-w-full shrink-0 snap-center items-center justify-center overflow-hidden"
                     >
                       <img
                         src={image}
@@ -230,14 +230,14 @@ export default function ProductDetails({
 
             {/* THUMBNAILS */}
             {galleryImages.length > 1 && (
-              <div className="mt-4 flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden sm:gap-3">
+              <div className="mt-3 flex max-w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:mt-4 sm:gap-3">
                 {galleryImages.map((image, index) => (
                   <button
                     key={`${image}-${index}`}
                     type="button"
                     onClick={() => scrollToImage(index)}
                     aria-label={`View product photo ${index + 1}`}
-                    className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl sm:h-24 sm:w-24 border-2 bg-white transition ${
+                    className={`h-12 w-12 shrink-0 overflow-hidden rounded-xl border-2 bg-white transition sm:h-24 sm:w-24 ${
                       selectedImage === index
                         ? "border-[#a51c24] ring-2 ring-[#a51c24]/20"
                         : "border-[#dcc8b5] hover:border-[#a51c24]"
@@ -262,7 +262,7 @@ export default function ProductDetails({
           </div>
 
           {/* DETAILS */}
-          <div className="p-7 md:p-10">
+          <div className="min-w-0 overflow-hidden p-5 sm:p-7 md:p-10">
             {product.badge && (
               <span className="inline-block rounded-full bg-[#ffd99c] px-4 py-1 text-xs font-bold text-[#571719]">
                 {product.badge}
@@ -273,11 +273,11 @@ export default function ProductDetails({
               {product.category}
             </p>
 
-            <h1 className="mt-2 text-3xl font-black leading-tight md:text-4xl">
+            <h1 className="mt-2 break-words text-3xl font-black leading-tight md:text-4xl">
               {product.name}
             </h1>
 
-            <div className="mt-5 flex items-center gap-3">
+            <div className="mt-5 flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="text-3xl font-black">
                 ₹{product.price.toLocaleString("en-IN")}
               </span>
@@ -287,7 +287,7 @@ export default function ProductDetails({
               </span>
             </div>
 
-            <p className="mt-5 leading-7 text-[#63453d]">
+            <p className="mt-5 break-words leading-7 text-[#63453d]">
               {product.description}
             </p>
 
@@ -306,7 +306,7 @@ export default function ProductDetails({
                     value={customName}
                     onChange={(e) => setCustomName(e.target.value)}
                     placeholder="e.g. Vishal & Family"
-                    className="mt-2 w-full rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
+                    className="mt-2 block w-full min-w-0 max-w-full rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
                   />
                 </div>
 
@@ -316,7 +316,7 @@ export default function ProductDetails({
                   <select
                     value={customSize}
                     onChange={(e) => setCustomSize(e.target.value)}
-                    className="mt-2 w-full rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
+                    className="mt-2 block w-full min-w-0 max-w-full rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
                   >
                     <option value="12 × 18 inch">12 × 18 inch</option>
                     <option value="12 × 24 inch">12 × 24 inch</option>
@@ -359,7 +359,7 @@ export default function ProductDetails({
                     onChange={(e) => setInstructions(e.target.value)}
                     placeholder="Tell us anything else you want..."
                     rows={3}
-                    className="mt-2 w-full resize-none rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
+                    className="mt-2 block w-full min-w-0 max-w-full resize-none rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
                   />
                 </div>
               </div>
