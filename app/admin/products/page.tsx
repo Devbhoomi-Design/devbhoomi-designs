@@ -300,7 +300,7 @@ export default function AdminProductsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#fffaf4] px-5 py-10">
+    <main className="min-h-screen overflow-x-hidden bg-[#fffaf4] px-3 py-6 sm:px-5 sm:py-10">
       <div className="mx-auto max-w-7xl">
 
         {/* HEADER */}
@@ -309,7 +309,7 @@ export default function AdminProductsPage() {
             DEVBHOOMI DESIGNS
           </p>
 
-          <h1 className="mt-2 text-4xl font-black text-[#321817]">
+          <h1 className="mt-2 text-3xl font-black leading-tight text-[#321817] sm:text-4xl">
             Product Management
           </h1>
 
@@ -317,18 +317,18 @@ export default function AdminProductsPage() {
             Add, edit and manage your products.
           </p>
 
-          <div className="mt-5 flex flex-wrap gap-3">
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <button
               type="button"
               onClick={() => (window.location.href = "/admin/orders")}
-              className="rounded-full border border-[#a51c24] px-5 py-2 font-bold text-[#a51c24]"
+              className="w-full rounded-full border border-[#a51c24] px-5 py-2 font-bold text-[#a51c24] sm:w-auto"
             >
               📦 Manage Orders
             </button>
             <button
               type="button"
               onClick={() => (window.location.href = "/")}
-              className="rounded-full bg-[#a51c24] px-5 py-2 font-bold text-white"
+              className="w-full rounded-full bg-[#a51c24] px-5 py-2 font-bold text-white sm:w-auto"
             >
               🏠 View Store
             </button>
@@ -336,8 +336,8 @@ export default function AdminProductsPage() {
         </div>
 
         {/* PRODUCT FORM */}
-        <section className="rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm">
-          <div className="flex items-center justify-between">
+        <section className="rounded-2xl border border-[#ead8c7] bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-2xl font-black text-[#321817]">
               {editingId !== null ? "Edit Product" : "Add New Product"}
             </h2>
@@ -346,7 +346,7 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="rounded-full border border-[#a51c24] px-5 py-2 font-bold text-[#a51c24]"
+                className="w-full rounded-full border border-[#a51c24] px-5 py-2 font-bold text-[#a51c24] sm:w-auto"
               >
                 Cancel Edit
               </button>
@@ -355,7 +355,7 @@ export default function AdminProductsPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="mt-6 grid gap-5 md:grid-cols-2"
+            className="mt-6 grid min-w-0 gap-5 md:grid-cols-2"
           >
             {/* NAME */}
             <div>
@@ -544,7 +544,7 @@ export default function AdminProductsPage() {
                       e.target.value = "";
                     }
                   }}
-                  className="block w-full cursor-pointer text-sm text-[#321817] file:mr-4 file:rounded-full file:border-0 file:bg-[#a51c24] file:px-5 file:py-2 file:font-bold file:text-white"
+                  className="block min-w-0 max-w-full w-full cursor-pointer overflow-hidden text-xs text-[#321817] file:mr-2 file:max-w-[45%] file:overflow-hidden file:rounded-full file:border-0 file:bg-[#a51c24] file:px-3 file:py-2 file:text-xs file:font-bold file:text-white sm:text-sm sm:file:mr-4 sm:file:px-5"
                 />
 
                 <p className="mt-2 text-xs text-[#795c52]">
@@ -564,7 +564,7 @@ export default function AdminProductsPage() {
                       Product Gallery ({form.image_urls.length}/10)
                     </p>
 
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
                       {form.image_urls.map((image, index) => (
                         <div
                           key={`${image}-${index}`}
@@ -704,11 +704,11 @@ export default function AdminProductsPage() {
             </label>
 
             {/* SUBMIT */}
-            <div className="flex justify-end md:col-span-2">
+            <div className="flex justify-stretch md:justify-end md:col-span-2">
               <button
                 type="submit"
                 disabled={saving || uploadingImage}
-                className="rounded-full bg-[#a51c24] px-8 py-3 font-bold text-white disabled:opacity-50"
+                className="w-full rounded-full bg-[#a51c24] px-8 py-3 font-bold text-white disabled:opacity-50 sm:w-auto"
               >
                 {saving
                   ? "Saving..."
@@ -726,7 +726,7 @@ export default function AdminProductsPage() {
             Products ({products.length})
           </h2>
 
-          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid min-w-0 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => (
               <article
                 key={product.id}
@@ -794,7 +794,7 @@ export default function AdminProductsPage() {
                     {product.description}
                   </p>
 
-                  <div className="mt-4 flex items-center justify-between gap-3">
+                  <div className="mt-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-black ${
                         product.in_stock
@@ -834,18 +834,18 @@ export default function AdminProductsPage() {
                           )
                         );
                       }}
-                      className="rounded-full border border-[#dcc8b5] px-4 py-2 text-xs font-bold text-[#321817] hover:bg-[#f7eadc]"
+                      className="w-full rounded-full border border-[#dcc8b5] px-4 py-2 text-xs font-bold text-[#321817] hover:bg-[#f7eadc] sm:w-auto"
                     >
                       {product.in_stock ? "Mark Out of Stock" : "Mark In Stock"}
                     </button>
                   </div>
 
                   {/* ACTIONS */}
-                  <div className="mt-5 flex gap-3">
+                  <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:gap-3">
                     <button
                       type="button"
                       onClick={() => editProduct(product)}
-                      className="flex-1 rounded-full border border-[#a51c24] px-4 py-2 font-bold text-[#a51c24]"
+                      className="w-full rounded-full border border-[#a51c24] px-4 py-2 font-bold text-[#a51c24] sm:flex-1"
                     >
                       Edit
                     </button>
@@ -853,7 +853,7 @@ export default function AdminProductsPage() {
                     <button
                       type="button"
                       onClick={() => deleteProduct(product.id)}
-                      className="flex-1 rounded-full border border-red-200 px-4 py-2 font-bold text-red-600"
+                      className="w-full rounded-full border border-red-200 px-4 py-2 font-bold text-red-600 sm:flex-1"
                     >
                       Delete
                     </button>
