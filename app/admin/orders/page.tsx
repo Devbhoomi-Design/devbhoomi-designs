@@ -20,6 +20,9 @@ type OrderItem = {
   customName?: string;
   customSize?: string;
   instructions?: string;
+  variantId?: string;
+  variantName?: string;
+  variantPrice?: number;
 };
 
 type Order = {
@@ -676,6 +679,19 @@ if (!isAdmin) {
                                   <p className="text-xs text-[#795c52]">
                                     Custom:{" "}
                                     {item.customName}
+                                  </p>
+                                )}
+
+                                {item.variantName && (
+                                  <p className="text-xs font-semibold text-[#795c52]">
+                                    Variant: {item.variantName}
+                                  </p>
+                                )}
+
+                                {item.variantPrice !== undefined && (
+                                  <p className="text-xs text-[#795c52]">
+                                    Unit Price: ₹
+                                    {Number(item.variantPrice).toLocaleString("en-IN")}
                                   </p>
                                 )}
 

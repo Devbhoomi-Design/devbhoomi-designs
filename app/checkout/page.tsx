@@ -12,6 +12,9 @@ type CartItem = {
   customName?: string;
   customSize?: string;
   instructions?: string;
+  variantId?: string;
+  variantName?: string;
+  variantPrice?: number;
 };
 
 export default function CheckoutPage() {
@@ -64,7 +67,8 @@ export default function CheckoutPage() {
       return sum;
     }
 
-    return sum + product.price * item.quantity;
+    const itemPrice = Number(item.variantPrice ?? product.price);
+    return sum + itemPrice * item.quantity;
   }, 0);
 
   const delivery = 0;
@@ -124,7 +128,8 @@ export default function CheckoutPage() {
 
     try {
       const orderId =
-        `DBD-${pincode}-${total}-${crypto.randomUUID()
+        `DBD-${pincode}-${total}-${crypto
+          .randomUUID()
           .slice(0, 8)
           .toUpperCase()}`;
 
@@ -322,7 +327,7 @@ export default function CheckoutPage() {
                               {product.name}
                             </p>
                             <p className="mt-1 text-sm text-[#795c52]">
-                              ₹{product.price.toLocaleString("en-IN")} ×{" "}
+                              ₹{Number(item.variantPrice ?? product.price).toLocaleString("en-IN")} ×{" "}
                               {item.quantity}
                             </p>
                             {item.customName && (
@@ -343,7 +348,7 @@ export default function CheckoutPage() {
                           </div>
 
                           <p className="font-black text-[#321817]">
-                            ₹{(product.price * item.quantity).toLocaleString("en-IN")}
+                            ₹{(Number(item.variantPrice ?? product.price) * item.quantity).toLocaleString("en-IN")}
                           </p>
                         </div>
                       </div>

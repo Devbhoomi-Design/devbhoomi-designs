@@ -14,8 +14,15 @@ import {
 
 import { Product } from "./products";
 
+type ProductVariant = {
+  id: string;
+  name: string;
+  price: number;
+};
+
 type ProductWithGallery = Product & {
   image_urls?: string[];
+  variants?: ProductVariant[];
 };
 
 type ProductDetailsProps = {
@@ -27,6 +34,10 @@ type ProductDetailsProps = {
       customName?: string;
       customSize?: string;
       instructions?: string;
+      variantId?: string;
+      variantName?: string;
+      variantPrice?: number;
+      quantity?: number;
     }
   ) => void;
 };
@@ -42,6 +53,9 @@ export default function ProductDetails({
   const [instructions, setInstructions] = useState("");
   const [referenceImage, setReferenceImage] = useState<File | null>(null);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [selectedVariantId, setSelectedVariantId] = useState(
+    product.variants?.[0]?.id ?? ""
+  );
   const galleryRef = useRef<HTMLDivElement>(null);
 
   // Use the new gallery when available.
@@ -102,6 +116,12 @@ export default function ProductDetails({
     );
   };
 
+  const selectedVariant =
+    product.variants?.find((variant) => variant.id === selectedVariantId) ??
+    product.variants?.[0];
+
+  const displayPrice = selectedVariant?.price ?? product.price;
+
   const increase = () => {
     setQuantity((current) => current + 1);
   };
@@ -116,13 +136,23 @@ export default function ProductDetails({
           customName: customName.trim(),
           customSize,
           instructions: instructions.trim(),
+          variantId: selectedVariant?.id,
+          variantName: selectedVariant?.name,
+          variantPrice: displayPrice,
+          quantity,
         }
-      : undefined;
+      : selectedVariant
+        ? {
+            variantId: selectedVariant.id,
+            variantName: selectedVariant.name,
+            variantPrice: displayPrice,
+            quantity,
+          }
+        : {
+            quantity,
+          };
 
-    for (let i = 0; i < quantity; i++) {
-      onAddToCart(product.id, customization);
-    }
-
+    onAddToCart(product.id, customization);
     onClose();
   };
 
@@ -279,7 +309,7 @@ export default function ProductDetails({
 
             <div className="mt-5 flex flex-wrap items-center gap-2 sm:gap-3">
               <span className="text-3xl font-black">
-                ₹{product.price.toLocaleString("en-IN")}
+                ₹{displayPrice.toLocaleString("en-IN")}
               </span>
 
               <span className="text-lg text-gray-400 line-through">
@@ -290,6 +320,42 @@ export default function ProductDetails({
             <p className="mt-5 break-words leading-7 text-[#63453d]">
               {product.description}
             </p>
+
+            {product.variants && product.variants.length > 0 && (
+              <div className="mt-7 rounded-2xl border border-[#e3c9af] bg-[#f7eadc] p-5">
+                <div className="font-bold text-[#a51c24]">Choose Size / Variant</div>
+
+                <div className="mt-4 grid gap-2">
+                  {product.variants.map((variant) => (
+                    <label
+                      key={variant.id}
+                      className={`flex cursor-pointer items-center justify-between gap-3 rounded-xl border bg-white px-4 py-3 transition ${
+                        selectedVariantId === variant.id
+                          ? "border-[#a51c24] ring-2 ring-[#a51c24]/10"
+                          : "border-[#dcc8b5]"
+                      }`}
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <input
+                          type="radio"
+                          name="product-variant"
+                          checked={selectedVariantId === variant.id}
+onChange={() => {
+  setSelectedVariantId(variant.id);
+  setQuantity(1);
+}}
+/>
+                        <span className="break-words font-semibold">{variant.name}</span>
+                      </span>
+
+                      <span className="shrink-0 font-black">
+                        ₹{Number(variant.price).toLocaleString("en-IN")}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {product.customizable && (
               <div className="mt-7 rounded-2xl border border-[#e3c9af] bg-[#f7eadc] p-5">

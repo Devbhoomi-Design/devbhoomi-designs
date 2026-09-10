@@ -15,6 +15,19 @@ type Product = {
   image: string | null;
   image_urls: string[] | null;
   in_stock: boolean;
+  variants: ProductVariant[];
+};
+
+type ProductVariant = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+type FormVariant = {
+  id: string;
+  name: string;
+  price: number;
 };
 
 const emptyProduct = {
@@ -28,6 +41,7 @@ const emptyProduct = {
   image: "",
   image_urls: [] as string[],
   in_stock: true,
+  variants: [] as FormVariant[],
 };
 
 export default function AdminProductsPage() {
@@ -107,6 +121,41 @@ export default function AdminProductsPage() {
     }));
   };
 
+  const addVariant = () => {
+    setForm((current) => ({
+      ...current,
+      variants: [
+        ...current.variants,
+        {
+          id: crypto.randomUUID(),
+          name: "",
+          price: 0,
+        },
+      ],
+    }));
+  };
+
+  const updateVariant = (id: string, field: "name" | "price", value: string) => {
+    setForm((current) => ({
+      ...current,
+      variants: current.variants.map((variant) =>
+        variant.id === id
+          ? {
+              ...variant,
+              [field]: field === "price" ? Number(value) : value,
+            }
+          : variant
+      ),
+    }));
+  };
+
+  const removeVariant = (id: string) => {
+    setForm((current) => ({
+      ...current,
+      variants: current.variants.filter((variant) => variant.id !== id),
+    }));
+  };
+
   // ADD / UPDATE PRODUCT
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -123,6 +172,19 @@ export default function AdminProductsPage() {
 
     if (!form.price || Number(form.price) < 0) {
       alert("Please enter a valid price.");
+      return;
+    }
+
+    const cleanedVariants = form.variants
+      .map((variant) => ({
+        id: variant.id || crypto.randomUUID(),
+        name: variant.name.trim(),
+        price: Number(variant.price),
+      }))
+      .filter((variant) => variant.name && Number.isFinite(variant.price) && variant.price >= 0);
+
+    if (cleanedVariants.length !== form.variants.length) {
+      alert("Please complete every variant name and price, or remove the empty variant.");
       return;
     }
 
@@ -148,6 +210,7 @@ export default function AdminProductsPage() {
       image: primaryImage,
       image_urls: galleryImages.length > 0 ? galleryImages : primaryImage ? [primaryImage] : [],
       in_stock: form.in_stock,
+      variants: cleanedVariants,
       updated_at: new Date().toISOString(),
     };
 
@@ -249,6 +312,13 @@ export default function AdminProductsPage() {
             ? [product.image]
             : [],
       in_stock: product.in_stock ?? true,
+      variants: Array.isArray(product.variants)
+        ? product.variants.map((variant: ProductVariant) => ({
+            id: variant.id || crypto.randomUUID(),
+            name: variant.name || "",
+            price: Number(variant.price),
+          }))
+        : [],
     });
 
     window.scrollTo({
@@ -300,7 +370,7 @@ export default function AdminProductsPage() {
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#fffaf4] px-3 py-6 sm:px-5 sm:py-10">
+    <main className="min-h-screen bg-[#fffaf4] px-5 py-10">
       <div className="mx-auto max-w-7xl">
 
         {/* HEADER */}
@@ -309,7 +379,7 @@ export default function AdminProductsPage() {
             DEVBHOOMI DESIGNS
           </p>
 
-          <h1 className="mt-2 text-3xl font-black leading-tight text-[#321817] sm:text-4xl">
+          <h1 className="mt-2 text-4xl font-black text-[#321817]">
             Product Management
           </h1>
 
@@ -317,18 +387,18 @@ export default function AdminProductsPage() {
             Add, edit and manage your products.
           </p>
 
-          <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <div className="mt-5 flex flex-wrap gap-3">
             <button
               type="button"
               onClick={() => (window.location.href = "/admin/orders")}
-              className="w-full rounded-full border border-[#a51c24] px-5 py-2 font-bold text-[#a51c24] sm:w-auto"
+              className="rounded-full border border-[#a51c24] px-5 py-2 font-bold text-[#a51c24]"
             >
               📦 Manage Orders
             </button>
             <button
               type="button"
               onClick={() => (window.location.href = "/")}
-              className="w-full rounded-full bg-[#a51c24] px-5 py-2 font-bold text-white sm:w-auto"
+              className="rounded-full bg-[#a51c24] px-5 py-2 font-bold text-white"
             >
               🏠 View Store
             </button>
@@ -336,8 +406,8 @@ export default function AdminProductsPage() {
         </div>
 
         {/* PRODUCT FORM */}
-        <section className="rounded-2xl border border-[#ead8c7] bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="rounded-3xl border border-[#ead8c7] bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between">
             <h2 className="text-2xl font-black text-[#321817]">
               {editingId !== null ? "Edit Product" : "Add New Product"}
             </h2>
@@ -346,7 +416,7 @@ export default function AdminProductsPage() {
               <button
                 type="button"
                 onClick={resetForm}
-                className="w-full rounded-full border border-[#a51c24] px-5 py-2 font-bold text-[#a51c24] sm:w-auto"
+                className="rounded-full border border-[#a51c24] px-5 py-2 font-bold text-[#a51c24]"
               >
                 Cancel Edit
               </button>
@@ -355,7 +425,7 @@ export default function AdminProductsPage() {
 
           <form
             onSubmit={handleSubmit}
-            className="mt-6 grid min-w-0 gap-5 md:grid-cols-2"
+            className="mt-6 grid gap-5 md:grid-cols-2"
           >
             {/* NAME */}
             <div>
@@ -544,7 +614,7 @@ export default function AdminProductsPage() {
                       e.target.value = "";
                     }
                   }}
-                  className="block min-w-0 max-w-full w-full cursor-pointer overflow-hidden text-xs text-[#321817] file:mr-2 file:max-w-[45%] file:overflow-hidden file:rounded-full file:border-0 file:bg-[#a51c24] file:px-3 file:py-2 file:text-xs file:font-bold file:text-white sm:text-sm sm:file:mr-4 sm:file:px-5"
+                  className="block w-full cursor-pointer text-sm text-[#321817] file:mr-4 file:rounded-full file:border-0 file:bg-[#a51c24] file:px-5 file:py-2 file:font-bold file:text-white"
                 />
 
                 <p className="mt-2 text-xs text-[#795c52]">
@@ -564,7 +634,7 @@ export default function AdminProductsPage() {
                       Product Gallery ({form.image_urls.length}/10)
                     </p>
 
-                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-5">
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
                       {form.image_urls.map((image, index) => (
                         <div
                           key={`${image}-${index}`}
@@ -657,6 +727,63 @@ export default function AdminProductsPage() {
               </div>
             </div>
 
+            {/* VARIANTS */}
+            <div className="md:col-span-2 rounded-2xl border border-[#e3c9af] bg-[#fffaf4] p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-black text-[#321817]">Size / Product Variants</h3>
+                  <p className="mt-1 text-xs text-[#795c52]">
+                    Add different sizes or versions with their own selling prices.
+                    Leave empty if the product has only one price.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addVariant}
+                  disabled={form.variants.length >= 20}
+                  className="rounded-full bg-[#a51c24] px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+                >
+                  + Add Variant
+                </button>
+              </div>
+
+              {form.variants.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  {form.variants.map((variant, index) => (
+                    <div
+                      key={variant.id}
+                      className="grid gap-3 rounded-xl border border-[#ead8c7] bg-white p-3 sm:grid-cols-[1fr_180px_auto]"
+                    >
+                      <input
+                        value={variant.name}
+                        onChange={(e) => updateVariant(variant.id, "name", e.target.value)}
+                        placeholder={`Variant ${index + 1} name (e.g. 12 × 18 inch)`}
+                        className="w-full rounded-xl border border-[#dcc8b5] px-4 py-3 outline-none focus:border-[#a51c24]"
+                      />
+
+                      <input
+                        type="number"
+                        min="0"
+                        value={variant.price}
+                        onChange={(e) => updateVariant(variant.id, "price", e.target.value)}
+                        placeholder="Price (₹)"
+                        className="w-full rounded-xl border border-[#dcc8b5] px-4 py-3 outline-none focus:border-[#a51c24]"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => removeVariant(variant.id)}
+                        className="rounded-xl border border-red-200 px-4 py-3 font-bold text-red-600 hover:bg-red-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* DESCRIPTION */}
             <div className="md:col-span-2">
               <label className="font-bold text-[#321817]">
@@ -704,11 +831,11 @@ export default function AdminProductsPage() {
             </label>
 
             {/* SUBMIT */}
-            <div className="flex justify-stretch md:justify-end md:col-span-2">
+            <div className="flex justify-end md:col-span-2">
               <button
                 type="submit"
                 disabled={saving || uploadingImage}
-                className="w-full rounded-full bg-[#a51c24] px-8 py-3 font-bold text-white disabled:opacity-50 sm:w-auto"
+                className="rounded-full bg-[#a51c24] px-8 py-3 font-bold text-white disabled:opacity-50"
               >
                 {saving
                   ? "Saving..."
@@ -726,7 +853,7 @@ export default function AdminProductsPage() {
             Products ({products.length})
           </h2>
 
-          <div className="grid min-w-0 gap-5 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {products.map((product) => (
               <article
                 key={product.id}
@@ -794,7 +921,7 @@ export default function AdminProductsPage() {
                     {product.description}
                   </p>
 
-                  <div className="mt-4 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="mt-4 flex items-center justify-between gap-3">
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-black ${
                         product.in_stock
@@ -834,18 +961,18 @@ export default function AdminProductsPage() {
                           )
                         );
                       }}
-                      className="w-full rounded-full border border-[#dcc8b5] px-4 py-2 text-xs font-bold text-[#321817] hover:bg-[#f7eadc] sm:w-auto"
+                      className="rounded-full border border-[#dcc8b5] px-4 py-2 text-xs font-bold text-[#321817] hover:bg-[#f7eadc]"
                     >
                       {product.in_stock ? "Mark Out of Stock" : "Mark In Stock"}
                     </button>
                   </div>
 
                   {/* ACTIONS */}
-                  <div className="mt-5 grid grid-cols-2 gap-2 sm:flex sm:gap-3">
+                  <div className="mt-5 flex gap-3">
                     <button
                       type="button"
                       onClick={() => editProduct(product)}
-                      className="w-full rounded-full border border-[#a51c24] px-4 py-2 font-bold text-[#a51c24] sm:flex-1"
+                      className="flex-1 rounded-full border border-[#a51c24] px-4 py-2 font-bold text-[#a51c24]"
                     >
                       Edit
                     </button>
@@ -853,7 +980,7 @@ export default function AdminProductsPage() {
                     <button
                       type="button"
                       onClick={() => deleteProduct(product.id)}
-                      className="w-full rounded-full border border-red-200 px-4 py-2 font-bold text-red-600 sm:flex-1"
+                      className="flex-1 rounded-full border border-red-200 px-4 py-2 font-bold text-red-600"
                     >
                       Delete
                     </button>
