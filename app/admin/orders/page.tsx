@@ -20,7 +20,35 @@ type OrderItem = {
   customName?: string;
   customSize?: string;
   instructions?: string;
+  variantId?: string;
+  variantName?: string;
+  variantPrice?: number;
+  productName?: string;
+  productImage?: string;
 };
+
+const legacyProductImages: Record<string, string> = {
+  "Personalised Aipan Nameplate": "/products/nameplate.jpg",
+  "Aipan Kalash / Tauli / Lota": "/products/kalash.jpg",
+  "Aipan Wall Hanging": "/products/wall-hanging.jpg",
+  "Customised Aipan Chowki": "/products/chowki.jpg",
+  "Aipan Pooja Thali": "/products/thali.jpg",
+  "Mandala Art": "/products/mandala.jpg",
+  "Aipan Karwachauth Set": "/products/karwachauth.jpg",
+  "Personalised Couple Gift": "/products/couple-gift.jpg",
+};
+
+type ProductInfo = {
+  name: string;
+  image?: string;
+  image_urls?: string[];
+};
+
+const getOrderProductImage = (product?: ProductInfo) =>
+  product?.image?.trim() ||
+  product?.image_urls?.find((url) => typeof url === "string" && url.trim()) ||
+  (product ? legacyProductImages[product.name] : undefined) ||
+  "";
 
 type Order = {
   orderId: string;
@@ -123,7 +151,56 @@ if (!isAdmin) {
         status: row.status || "New Order",
       }));
 
-      setOrders(formattedOrders);
+      const productIds = Array.from(
+        new Set(
+          formattedOrders.flatMap((order) =>
+            order.items.map((item) => Number(item.id)).filter(Number.isFinite)
+          )
+        )
+      );
+
+      let productMap: Record<number, ProductInfo> = {};
+
+      if (productIds.length > 0) {
+        const { data: productRows, error: productError } = await supabase
+          .from("products")
+          .select("id, name, image, image_urls")
+          .in("id", productIds);
+
+        if (productError) {
+          console.error("Could not load product details:", productError);
+        } else {
+          productMap = Object.fromEntries(
+            (productRows || []).map((product) => [
+              Number(product.id),
+              {
+                name: String(product.name || `Product #${product.id}`),
+                image: typeof product.image === "string" ? product.image : undefined,
+                image_urls: Array.isArray(product.image_urls)
+                  ? product.image_urls.filter(
+                      (url: unknown): url is string =>
+                        typeof url === "string" && url.trim().length > 0
+                    )
+                  : [],
+              },
+            ])
+          );
+        }
+      }
+
+      setOrders(
+        formattedOrders.map((order) => ({
+          ...order,
+          items: order.items.map((item) => {
+            const product = productMap[Number(item.id)];
+            return {
+              ...item,
+              productName: product?.name || `Product #${item.id}`,
+              productImage: getOrderProductImage(product),
+            };
+          }),
+        }))
+      );
     } catch (error) {
       console.error("Unexpected error:", error);
       setOrders([]);
@@ -660,32 +737,53 @@ if (!isAdmin) {
                                   item.cartKey ??
                                   `${item.id}-${index}`
                                 }
-                                className="rounded-xl bg-[#fffaf4] p-3"
+                                className="flex items-center gap-3 rounded-2xl bg-[#fffaf4] p-3"
                               >
+                                <div className="h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-[#ead8c7] bg-white">
+                                  {item.productImage ? (
+                                    <img
+                                      src={item.productImage}
+                                      alt={item.productName || `Product #${item.id}`}
+                                      className="h-full w-full object-contain p-1"
+                                      onError={(event) => {
+                                        event.currentTarget.style.display = "none";
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center text-xl">
+                                      🎨
+                                    </div>
+                                  )}
+                                </div>
 
-                                <p className="font-bold text-[#321817]">
-                                  Product #{item.id}
-                                </p>
-
-                                <p className="text-sm text-[#795c52]">
-                                  Quantity:{" "}
-                                  {item.quantity}
-                                </p>
-
-                                {item.customName && (
-                                  <p className="text-xs text-[#795c52]">
-                                    Custom:{" "}
-                                    {item.customName}
+                                <div className="min-w-0">
+                                  <p className="font-black text-[#321817]">
+                                    {item.productName || `Product #${item.id}`}
                                   </p>
-                                )}
-
-                                {item.customSize && (
-                                  <p className="text-xs text-[#795c52]">
-                                    Size:{" "}
-                                    {item.customSize}
+                                  <p className="text-sm text-[#795c52]">
+                                    Quantity: {item.quantity}
                                   </p>
-                                )}
-
+                                  {item.variantName && (
+                                    <p className="text-sm font-semibold text-[#795c52]">
+                                      Variant: {item.variantName}
+                                    </p>
+                                  )}
+                                  {item.variantPrice != null && (
+                                    <p className="text-sm font-semibold text-[#795c52]">
+                                      Unit Price: ₹{Number(item.variantPrice).toLocaleString("en-IN")}
+                                    </p>
+                                  )}
+                                  {item.customName && (
+                                    <p className="text-xs text-[#795c52]">
+                                      Custom: {item.customName}
+                                    </p>
+                                  )}
+                                  {item.customSize && (
+                                    <p className="text-xs text-[#795c52]">
+                                      Size: {item.customSize}
+                                    </p>
+                                  )}
+                                </div>
                               </div>
                             )
                           )}
