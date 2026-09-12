@@ -20,6 +20,7 @@ type OrderItem = {
   customName?: string;
   customSize?: string;
   instructions?: string;
+  referenceImageUrl?: string;
   variantId?: string;
   variantName?: string;
   variantPrice?: number;
@@ -74,6 +75,10 @@ export default function AdminOrdersPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"All" | OrderStatus>("All");
   const [loaded, setLoaded] = useState(false);
+  const [selectedCustomization, setSelectedCustomization] = useState<{
+    item: OrderItem;
+    productName: string;
+  } | null>(null);
 
   // =====================================================
   // LOAD ORDERS
@@ -783,6 +788,21 @@ if (!isAdmin) {
                                       Size: {item.customSize}
                                     </p>
                                   )}
+
+                                  {(item.customName || item.customSize || item.instructions || item.referenceImageUrl) && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setSelectedCustomization({
+                                          item,
+                                          productName: item.productName || `Product #${item.id}`,
+                                        })
+                                      }
+                                      className="mt-2 rounded-full bg-[#a51c24] px-3 py-1.5 text-xs font-black text-white transition hover:bg-[#85161d]"
+                                    >
+                                      🎨 View Customization
+                                    </button>
+                                  )}
                                 </div>
                               </div>
                             )
@@ -915,6 +935,115 @@ if (!isAdmin) {
 
         </div>
       </div>
+
+      {selectedCustomization && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Customer customization details"
+          onClick={() => setSelectedCustomization(null)}
+        >
+          <div
+            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-3xl border border-[#ead8c7] bg-[#fffaf4] p-5 shadow-2xl sm:p-7"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-[#ead8c7] pb-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#a51c24]">
+                  Customer Customization
+                </p>
+                <h2 className="mt-1 text-2xl font-black text-[#321817]">
+                  {selectedCustomization.productName}
+                </h2>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedCustomization(null)}
+                className="rounded-full border border-[#dcc8b5] bg-white px-4 py-2 text-xl font-bold text-[#321817]"
+                aria-label="Close customization details"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {selectedCustomization.item.variantName && (
+                <div className="rounded-2xl bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">Variant</p>
+                  <p className="mt-1 font-black text-[#321817]">
+                    {selectedCustomization.item.variantName}
+                  </p>
+                </div>
+              )}
+
+              {selectedCustomization.item.variantPrice != null && (
+                <div className="rounded-2xl bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">Unit Price</p>
+                  <p className="mt-1 font-black text-[#321817]">
+                    ₹{Number(selectedCustomization.item.variantPrice).toLocaleString("en-IN")}
+                  </p>
+                </div>
+              )}
+
+              {selectedCustomization.item.customName && (
+                <div className="rounded-2xl bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">Name / Text</p>
+                  <p className="mt-1 whitespace-pre-wrap break-words font-semibold text-[#321817]">
+                    {selectedCustomization.item.customName}
+                  </p>
+                </div>
+              )}
+
+              {selectedCustomization.item.customSize && (
+                <div className="rounded-2xl bg-white p-4">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">Custom Size</p>
+                  <p className="mt-1 font-semibold text-[#321817]">
+                    {selectedCustomization.item.customSize}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {selectedCustomization.item.instructions && (
+              <div className="mt-4 rounded-2xl bg-white p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">Special Instructions</p>
+                <p className="mt-2 whitespace-pre-wrap break-words text-[#321817]">
+                  {selectedCustomization.item.instructions}
+                </p>
+              </div>
+            )}
+
+            {selectedCustomization.item.referenceImageUrl ? (
+              <div className="mt-4 rounded-2xl bg-white p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">Reference Image</p>
+                  <a
+                    href={selectedCustomization.item.referenceImageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-xs font-bold text-[#a51c24] hover:underline"
+                  >
+                    Open Full Image ↗
+                  </a>
+                </div>
+                <div className="mt-3 overflow-hidden rounded-2xl border border-[#ead8c7] bg-[#f7eadc]">
+                  <img
+                    src={selectedCustomization.item.referenceImageUrl}
+                    alt="Customer reference"
+                    className="max-h-[420px] w-full object-contain"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-2xl bg-[#f7eadc] p-4 text-sm font-semibold text-[#795c52]">
+                No reference image was uploaded for this customization.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </main>
   );
 }
