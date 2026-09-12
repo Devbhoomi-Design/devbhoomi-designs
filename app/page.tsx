@@ -23,16 +23,43 @@ import { products } from "./products";
 import ProductDetails from "./ProductDetails";
 import { supabase } from "@/app/lib/supabase";
 
+type ProductVariant = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+type RawProductVariant = {
+  id?: string | number;
+  name?: unknown;
+  price?: unknown;
+};
+
 type CartItem = {
   id: number;
   quantity: number;
+  cartKey?: string;
   customName?: string;
   customSize?: string;
   instructions?: string;
+  variantId?: string;
+  variantName?: string;
+  variantPrice?: number;
 };
+
+const makeStoredCartKey = (item: CartItem) =>
+  [
+    String(item.id),
+    item.variantId || "base",
+    item.customName || "",
+    item.customSize || "",
+    item.instructions || "",
+  ].join("::");
 
 type Product = (typeof products)[number] & {
   in_stock?: boolean;
+  image_urls?: string[];
+  variants?: ProductVariant[];
 };
 
 const categoryIcons: Record<string, string> = {
@@ -58,7 +85,7 @@ const legacyProductImages: Record<string, string> = {
 };
 
 const getProductImage = (product: Product) =>
-  product.image?.trim() || legacyProductImages[product.name] || "";
+  product.image?.trim() || product.image_urls?.[0]?.trim() || legacyProductImages[product.name] || "";
 
 export default function Home() {
   const router = useRouter();
@@ -80,7 +107,16 @@ export default function Home() {
         if (savedCart) {
           const parsedCart = JSON.parse(savedCart);
           if (Array.isArray(parsedCart)) {
-            setCart(parsedCart);
+            const normalizedCart: CartItem[] = parsedCart.map((item) => ({
+              ...item,
+              cartKey: makeStoredCartKey(item),
+            }));
+
+            setCart(normalizedCart);
+            localStorage.setItem(
+              "devbhoomi-cart",
+              JSON.stringify(normalizedCart)
+            );
           }
         }
       } catch (error) {
@@ -226,7 +262,31 @@ export default function Home() {
           badge: product.badge ?? undefined,
           customizable: Boolean(product.customizable),
           image: product.image ?? "",
+          image_urls: Array.isArray(product.image_urls)
+            ? product.image_urls.filter(
+                (image: unknown): image is string =>
+                  typeof image === "string" && image.trim().length > 0
+              )
+            : product.image
+              ? [product.image]
+              : [],
           in_stock: product.in_stock ?? true,
+          variants: Array.isArray(product.variants)
+            ? product.variants
+                .filter((variant: unknown): variant is RawProductVariant => {
+                  if (!variant || typeof variant !== "object") return false;
+                  const candidate = variant as RawProductVariant;
+                  return (
+                    typeof candidate.name === "string" &&
+                    Number.isFinite(Number(candidate.price))
+                  );
+                })
+                 .map((variant: RawProductVariant) => ({
+                id: String(variant.id ?? crypto.randomUUID()),
+                  name: variant.name as string,
+                  price: Number(variant.price),
+                }))
+            : [],
         }));
 
         setStoreProducts(formattedProducts);
@@ -274,12 +334,34 @@ export default function Home() {
     });
   }, [search, selectedCategory, storeProducts]);
 
+  // =====================================================
+  // CART + VARIANT LOGIC
+  // =====================================================
+  const makeCartKey = (item: {
+    id: number;
+    variantId?: string;
+    customName?: string;
+    customSize?: string;
+    instructions?: string;
+  }) =>
+    [
+      String(item.id),
+      item.variantId || "base",
+      item.customName || "",
+      item.customSize || "",
+      item.instructions || "",
+    ].join("::");
+
   const addToCart = (
     id: number,
     customization?: {
       customName?: string;
       customSize?: string;
       instructions?: string;
+      variantId?: string;
+      variantName?: string;
+      variantPrice?: number;
+      quantity?: number;
     }
   ) => {
     const product = storeProducts.find((item) => item.id === id);
@@ -294,38 +376,45 @@ export default function Home() {
       return;
     }
 
+    const newItem: CartItem = {
+      id,
+      quantity: Math.max(1, customization?.quantity ?? 1),
+      customName: customization?.customName,
+      customSize: customization?.customSize,
+      instructions: customization?.instructions,
+      variantId: customization?.variantId,
+      variantName: customization?.variantName,
+      variantPrice: customization?.variantPrice ?? product.price,
+    };
+
+    const newCartKey = makeCartKey(newItem);
+
     setCart((current) => {
-      const existing = current.find(
-        (item) =>
-          item.id === id &&
-          item.customName === customization?.customName &&
-          item.customSize === customization?.customSize &&
-          item.instructions === customization?.instructions
+      const existingIndex = current.findIndex(
+        (item) => makeCartKey(item) === newCartKey
       );
 
-      let updatedCart: CartItem[];
-
-      if (existing) {
-        updatedCart = current.map((item) =>
-          item === existing
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-              }
-            : item
-        );
-      } else {
-        updatedCart = [
-          ...current,
-          {
-            id,
-            quantity: 1,
-            customName: customization?.customName,
-            customSize: customization?.customSize,
-            instructions: customization?.instructions,
-          },
-        ];
-      }
+      const updatedCart: CartItem[] =
+        existingIndex >= 0
+          ? current.map((item, index) =>
+              index === existingIndex
+                ? {
+                    ...item,
+                    cartKey: newCartKey,
+                    quantity: item.quantity + newItem.quantity,
+                    variantId: newItem.variantId,
+                    variantName: newItem.variantName,
+                    variantPrice: newItem.variantPrice,
+                  }
+                : item
+            )
+          : [
+              ...current,
+              {
+                ...newItem,
+                cartKey: newCartKey,
+              },
+            ];
 
       localStorage.setItem("devbhoomi-cart", JSON.stringify(updatedCart));
       return updatedCart;
@@ -334,18 +423,13 @@ export default function Home() {
     setCartOpen(true);
   };
 
-  const increaseQuantity = (id: number) => {
-    const product = storeProducts.find((item) => item.id === id);
+  const getCartKey = (item: CartItem) => makeCartKey(item);
 
-    if (product?.in_stock === false) {
-      alert("Sorry, this product is currently out of stock.");
-      return;
-    }
-
+  const increaseQuantity = (cartKey: string) => {
     setCart((current) => {
       const updatedCart = current.map((item) =>
-        item.id === id
-          ? { ...item, quantity: item.quantity + 1 }
+        getCartKey(item) === cartKey
+          ? { ...item, cartKey, quantity: item.quantity + 1 }
           : item
       );
 
@@ -354,12 +438,12 @@ export default function Home() {
     });
   };
 
-  const decreaseQuantity = (id: number) => {
+  const decreaseQuantity = (cartKey: string) => {
     setCart((current) => {
       const updatedCart = current
         .map((item) =>
-          item.id === id
-            ? { ...item, quantity: item.quantity - 1 }
+          getCartKey(item) === cartKey
+            ? { ...item, cartKey, quantity: item.quantity - 1 }
             : item
         )
         .filter((item) => item.quantity > 0);
@@ -369,9 +453,12 @@ export default function Home() {
     });
   };
 
-  const removeFromCart = (id: number) => {
+  const removeFromCart = (cartKey: string) => {
     setCart((current) => {
-      const updatedCart = current.filter((item) => item.id !== id);
+      const updatedCart = current.filter(
+        (item) => getCartKey(item) !== cartKey
+      );
+
       localStorage.setItem("devbhoomi-cart", JSON.stringify(updatedCart));
       return updatedCart;
     });
@@ -383,12 +470,33 @@ export default function Home() {
 
       if (!product) return null;
 
+      const variant = product.variants?.find(
+        (candidate) => candidate.id === item.variantId
+      );
+
+      const variantPrice =
+        item.variantPrice ?? variant?.price ?? product.price;
+
       return {
         ...product,
         quantity: item.quantity,
+        cartKey: getCartKey(item),
+        variantName: item.variantName ?? variant?.name,
+        variantPrice,
+        customName: item.customName,
+        customSize: item.customSize,
+        instructions: item.instructions,
       };
     })
-    .filter(Boolean) as (Product & { quantity: number })[];
+    .filter(Boolean) as (Product & {
+    quantity: number;
+    cartKey: string;
+    variantName?: string;
+    variantPrice: number;
+    customName?: string;
+    customSize?: string;
+    instructions?: string;
+  })[];
 
   const cartCount = cart.reduce(
     (total, item) => total + item.quantity,
@@ -396,7 +504,7 @@ export default function Home() {
   );
 
   const cartTotal = cartProducts.reduce(
-    (total, item) => total + item.price * item.quantity,
+    (total, item) => total + item.variantPrice * item.quantity,
     0
   );
 
@@ -1227,7 +1335,7 @@ export default function Home() {
                 <div className="space-y-5">
                   {cartProducts.map((product) => (
                     <div
-                      key={product.id}
+                      key={product.cartKey}
                       className="rounded-2xl border border-[#ead8c7] bg-white p-4"
                     >
                       <div className="flex gap-4">
@@ -1241,15 +1349,27 @@ export default function Home() {
                           </h3>
 
                           <p className="mt-1 font-black">
-                            ₹{product.price.toLocaleString("en-IN")}
+                            ₹{product.variantPrice.toLocaleString("en-IN")}
                           </p>
+
+                          {product.variantName && (
+                            <p className="mt-1 text-xs font-semibold text-[#795c52]">
+                              Variant: {product.variantName}
+                            </p>
+                          )}
+
+                          {product.customName && (
+                            <p className="mt-1 text-xs text-[#795c52]">
+                              Custom: {product.customName}
+                            </p>
+                          )}
 
                           <div className="mt-3 flex items-center justify-between">
                             <div className="flex items-center gap-2 rounded-full border border-[#dcc8b5]">
                               <button
                                 type="button"
                                 onClick={() =>
-                                  decreaseQuantity(product.id)
+                                  decreaseQuantity(product.cartKey)
                                 }
                                 className="p-2"
                               >
@@ -1263,7 +1383,7 @@ export default function Home() {
                               <button
                                 type="button"
                                 onClick={() =>
-                                  increaseQuantity(product.id)
+                                  increaseQuantity(product.cartKey)
                                 }
                                 className="p-2"
                               >
@@ -1274,7 +1394,7 @@ export default function Home() {
                             <button
                               type="button"
                               onClick={() =>
-                                removeFromCart(product.id)
+                                removeFromCart(product.cartKey)
                               }
                               className="text-[#a51c24]"
                             >
@@ -1326,13 +1446,13 @@ export default function Home() {
       {/* PRODUCT DETAILS */}
       {selectedProduct && (
         <ProductDetails
-  product={selectedProduct}
-  onClose={() => setSelectedProduct(null)}
-  onAddToCart={(id) => {
-    addToCart(id);
-    setCartOpen(true);
-  }}
-/>
+          product={selectedProduct}
+          onClose={() => setSelectedProduct(null)}
+          onAddToCart={(id, customization) => {
+            addToCart(id, customization);
+            setCartOpen(true);
+          }}
+        />
       )}
 
       {/* MOBILE BOTTOM NAVIGATION */}

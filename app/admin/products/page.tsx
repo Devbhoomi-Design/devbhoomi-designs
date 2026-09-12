@@ -13,7 +13,21 @@ type Product = {
   badge: string | null;
   customizable: boolean;
   image: string | null;
+  image_urls: string[] | null;
   in_stock: boolean;
+  variants: ProductVariant[];
+};
+
+type ProductVariant = {
+  id: string;
+  name: string;
+  price: number;
+};
+
+type FormVariant = {
+  id: string;
+  name: string;
+  price: number;
 };
 
 const emptyProduct = {
@@ -25,7 +39,9 @@ const emptyProduct = {
   badge: "",
   customizable: false,
   image: "",
+  image_urls: [] as string[],
   in_stock: true,
+  variants: [] as FormVariant[],
 };
 
 export default function AdminProductsPage() {
@@ -105,6 +121,41 @@ export default function AdminProductsPage() {
     }));
   };
 
+  const addVariant = () => {
+    setForm((current) => ({
+      ...current,
+      variants: [
+        ...current.variants,
+        {
+          id: crypto.randomUUID(),
+          name: "",
+          price: 0,
+        },
+      ],
+    }));
+  };
+
+  const updateVariant = (id: string, field: "name" | "price", value: string) => {
+    setForm((current) => ({
+      ...current,
+      variants: current.variants.map((variant) =>
+        variant.id === id
+          ? {
+              ...variant,
+              [field]: field === "price" ? Number(value) : value,
+            }
+          : variant
+      ),
+    }));
+  };
+
+  const removeVariant = (id: string) => {
+    setForm((current) => ({
+      ...current,
+      variants: current.variants.filter((variant) => variant.id !== id),
+    }));
+  };
+
   // ADD / UPDATE PRODUCT
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,7 +175,29 @@ export default function AdminProductsPage() {
       return;
     }
 
+    const cleanedVariants = form.variants
+      .map((variant) => ({
+        id: variant.id || crypto.randomUUID(),
+        name: variant.name.trim(),
+        price: Number(variant.price),
+      }))
+      .filter((variant) => variant.name && Number.isFinite(variant.price) && variant.price >= 0);
+
+    if (cleanedVariants.length !== form.variants.length) {
+      alert("Please complete every variant name and price, or remove the empty variant.");
+      return;
+    }
+
     setSaving(true);
+
+    // Always save the complete gallery as an array.
+    // The first photo is also kept in the legacy `image` column for compatibility.
+    const galleryImages = form.image_urls
+      .map((url) => url.trim())
+      .filter(Boolean)
+      .slice(0, 10);
+
+    const primaryImage = (galleryImages[0] || form.image.trim()).trim() || null;
 
     const productData = {
       name: form.name.trim(),
@@ -134,8 +207,10 @@ export default function AdminProductsPage() {
       description: form.description.trim(),
       badge: form.badge.trim() || null,
       customizable: form.customizable,
-      image: form.image.trim() || null,
+      image: primaryImage,
+      image_urls: galleryImages.length > 0 ? galleryImages : primaryImage ? [primaryImage] : [],
       in_stock: form.in_stock,
+      variants: cleanedVariants,
       updated_at: new Date().toISOString(),
     };
 
@@ -151,13 +226,33 @@ export default function AdminProductsPage() {
         console.error("Update error:", error);
         alert("Could not update product.");
       } else {
+        // Use the exact row returned by Supabase so the admin screen immediately
+        // reflects what was actually saved in the database.
+        const savedGallery = Array.isArray(data.image_urls)
+          ? data.image_urls.filter(
+              (url: unknown): url is string =>
+                typeof url === "string" && url.trim().length > 0
+            )
+          : data.image
+            ? [data.image]
+            : [];
+
+        const normalizedData: Product = {
+          ...data,
+          image_urls: savedGallery,
+        };
+
         setProducts((current) =>
           current.map((product) =>
-            product.id === editingId ? data : product
+            product.id === editingId ? normalizedData : product
           )
         );
 
-        alert("Product updated successfully.");
+        alert(
+          `Product updated successfully. ${savedGallery.length} photo${
+            savedGallery.length === 1 ? "" : "s"
+          } saved.`
+        );
         resetForm();
       }
     } else {
@@ -171,9 +266,25 @@ export default function AdminProductsPage() {
         console.error("Insert error:", error);
         alert("Could not add product.");
       } else {
-        setProducts((current) => [...current, data]);
+        const savedGallery = Array.isArray(data.image_urls)
+          ? data.image_urls.filter(
+              (url: unknown): url is string =>
+                typeof url === "string" && url.trim().length > 0
+            )
+          : data.image
+            ? [data.image]
+            : [];
 
-        alert("Product added successfully.");
+        setProducts((current) => [
+          ...current,
+          { ...data, image_urls: savedGallery },
+        ]);
+
+        alert(
+          `Product added successfully. ${savedGallery.length} photo${
+            savedGallery.length === 1 ? "" : "s"
+          } saved.`
+        );
         resetForm();
       }
     }
@@ -194,7 +305,20 @@ export default function AdminProductsPage() {
       badge: product.badge || "",
       customizable: product.customizable,
       image: product.image || "",
+      image_urls:
+        product.image_urls && product.image_urls.length > 0
+          ? product.image_urls
+          : product.image
+            ? [product.image]
+            : [],
       in_stock: product.in_stock ?? true,
+      variants: Array.isArray(product.variants)
+        ? product.variants.map((variant: ProductVariant) => ({
+            id: variant.id || crypto.randomUUID(),
+            name: variant.name || "",
+            price: Number(variant.price),
+          }))
+        : [],
     });
 
     window.scrollTo({
@@ -380,60 +504,111 @@ export default function AdminProductsPage() {
               />
             </div>
 
-            {/* PRODUCT IMAGE UPLOAD */}
-            <div>
+            {/* PRODUCT IMAGE GALLERY */}
+            <div className="md:col-span-2">
               <label className="font-bold text-[#321817]">
-                Product Image
+                Product Photos
               </label>
 
               <div className="mt-2 rounded-2xl border border-[#dcc8b5] bg-[#fffaf4] p-4">
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/jpg"
+                  multiple
                   onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
+                    const files = Array.from(e.target.files || []);
 
-                    if (!file.type.startsWith("image/")) {
-                      alert("Please select an image file.");
+                    if (!files.length) return;
+
+                    const remainingSlots = 10 - form.image_urls.length;
+
+                    if (remainingSlots <= 0) {
+                      alert("You can upload a maximum of 10 product photos.");
+                      e.target.value = "";
                       return;
                     }
 
-                    if (file.size > 10 * 1024 * 1024) {
-                      alert("Please choose an image smaller than 10 MB.");
+                    if (files.length > remainingSlots) {
+                      alert(
+                        `You can add only ${remainingSlots} more photo${
+                          remainingSlots === 1 ? "" : "s"
+                        }. Maximum is 10 photos per product.`
+                      );
+                      e.target.value = "";
                       return;
+                    }
+
+                    for (const file of files) {
+                      if (!file.type.startsWith("image/")) {
+                        alert("Please select image files only.");
+                        e.target.value = "";
+                        return;
+                      }
+
+                      if (file.size > 10 * 1024 * 1024) {
+                        alert(
+                          `Please choose an image smaller than 10 MB: ${file.name}`
+                        );
+                        e.target.value = "";
+                        return;
+                      }
                     }
 
                     setUploadingImage(true);
 
                     try {
-                      const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
-                      const filePath = `products/${crypto.randomUUID()}.${extension}`;
+                      const uploadedUrls: string[] = [];
 
-                      const { error: uploadError } = await supabase.storage
-                        .from("product-images")
-                        .upload(filePath, file, {
-                          cacheControl: "3600",
-                          upsert: false,
-                          contentType: file.type,
-                        });
+                      // Upload every selected file before changing the form state.
+                      // This prevents a multi-file selection from being replaced by
+                      // a later state update.
+                      for (const file of files) {
+                        const extension =
+                          file.name.split(".").pop()?.toLowerCase() || "jpg";
 
-                      if (uploadError) {
-                        console.error("Image upload error:", uploadError);
-                        alert(`Could not upload image: ${uploadError.message}`);
-                        return;
+                        const filePath = `products/${crypto.randomUUID()}.${extension}`;
+
+                        const { error: uploadError } = await supabase.storage
+                          .from("product-images")
+                          .upload(filePath, file, {
+                            cacheControl: "3600",
+                            upsert: false,
+                            contentType: file.type,
+                          });
+
+                        if (uploadError) {
+                          console.error("Image upload error:", uploadError);
+                          alert(
+                            `Could not upload ${file.name}: ${uploadError.message}`
+                          );
+                          return;
+                        }
+
+                        const { data } = supabase.storage
+                          .from("product-images")
+                          .getPublicUrl(filePath);
+
+                        uploadedUrls.push(data.publicUrl);
                       }
 
-                      const { data } = supabase.storage
-                        .from("product-images")
-                        .getPublicUrl(filePath);
+                      setForm((current) => {
+                        const combined = [
+                          ...current.image_urls,
+                          ...uploadedUrls,
+                        ].slice(0, 10);
 
-                      setForm((current) => ({
-                        ...current,
-                        image: data.publicUrl,
-                      }));
+                        return {
+                          ...current,
+                          image_urls: combined,
+                          image: combined[0] || "",
+                        };
+                      });
 
-                      alert("Product image uploaded successfully.");
+                      alert(
+                        `${uploadedUrls.length} product photo${
+                          uploadedUrls.length === 1 ? "" : "s"
+                        } uploaded successfully.`
+                      );
                     } finally {
                       setUploadingImage(false);
                       e.target.value = "";
@@ -443,37 +618,170 @@ export default function AdminProductsPage() {
                 />
 
                 <p className="mt-2 text-xs text-[#795c52]">
-                  JPG, PNG or WebP • Maximum 10 MB • The original image is uploaded without resizing.
+                  Upload up to 10 photos • JPG, PNG or WebP • Maximum 10 MB each
+                  • The first photo is the main product photo.
                 </p>
 
                 {uploadingImage && (
                   <p className="mt-3 text-sm font-bold text-[#a51c24]">
-                    Uploading image...
+                    Uploading product photos...
                   </p>
                 )}
 
-                {form.image && (
-                  <div className="mt-4 overflow-hidden rounded-xl border border-[#ead8c7] bg-white p-2">
-                    <img
-                      src={form.image}
-                      alt="Product preview"
-                      className="h-48 w-full object-contain"
-                    />
-                    <p className="mt-2 text-xs font-bold text-green-700">
-                      ✓ Image ready for this product
+                {form.image_urls.length > 0 && (
+                  <div className="mt-5">
+                    <p className="mb-3 text-sm font-bold text-[#321817]">
+                      Product Gallery ({form.image_urls.length}/10)
                     </p>
+
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-5">
+                      {form.image_urls.map((image, index) => (
+                        <div
+                          key={`${image}-${index}`}
+                          className="overflow-hidden rounded-xl border border-[#ead8c7] bg-white"
+                        >
+                          <div className="relative h-32">
+                            <img
+                              src={image}
+                              alt={`${form.name || "Product"} photo ${
+                                index + 1
+                              }`}
+                              className="h-full w-full object-contain p-1"
+                            />
+
+                            {index === 0 && (
+                              <span className="absolute left-2 top-2 rounded-full bg-[#a51c24] px-2 py-1 text-[10px] font-black text-white">
+                                MAIN
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex flex-col gap-1 p-2">
+                            {index !== 0 && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setForm((current) => {
+                                    const images = [...current.image_urls];
+                                    const [selected] = images.splice(index, 1);
+                                    images.unshift(selected);
+
+                                    return {
+                                      ...current,
+                                      image_urls: images,
+                                      image: images[0] || "",
+                                    };
+                                  });
+                                }}
+                                className="rounded-lg border border-[#dcc8b5] px-2 py-1 text-xs font-bold text-[#321817] hover:bg-[#f7eadc]"
+                              >
+                                Make Main
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setForm((current) => {
+                                  const images = current.image_urls.filter(
+                                    (_, imageIndex) => imageIndex !== index
+                                  );
+
+                                  return {
+                                    ...current,
+                                    image_urls: images,
+                                    image: images[0] || "",
+                                  };
+                                });
+                              }}
+                              className="rounded-lg border border-red-200 px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
+
+                {/* Optional manual URL for existing/legacy products */}
+                <input
+                  name="image"
+                  value={form.image}
+                  onChange={(e) => {
+                    const value = e.target.value;
+
+                    setForm((current) => ({
+                      ...current,
+                      image: value,
+                      image_urls:
+                        value.trim() && current.image_urls.length === 0
+                          ? [value.trim()]
+                          : current.image_urls,
+                    }));
+                  }}
+                  placeholder="Or paste a main image URL"
+                  className="mt-4 w-full rounded-xl border border-[#dcc8b5] px-4 py-3 text-sm outline-none focus:border-[#a51c24]"
+                />
+              </div>
+            </div>
+
+            {/* VARIANTS */}
+            <div className="md:col-span-2 rounded-2xl border border-[#e3c9af] bg-[#fffaf4] p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="font-black text-[#321817]">Size / Product Variants</h3>
+                  <p className="mt-1 text-xs text-[#795c52]">
+                    Add different sizes or versions with their own selling prices.
+                    Leave empty if the product has only one price.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={addVariant}
+                  disabled={form.variants.length >= 20}
+                  className="rounded-full bg-[#a51c24] px-5 py-2 text-sm font-bold text-white disabled:opacity-50"
+                >
+                  + Add Variant
+                </button>
               </div>
 
-              {/* Optional manual URL for existing/legacy products */}
-              <input
-                name="image"
-                value={form.image}
-                onChange={handleChange}
-                placeholder="Or paste an image URL"
-                className="mt-3 w-full rounded-xl border border-[#dcc8b5] px-4 py-3 text-sm outline-none focus:border-[#a51c24]"
-              />
+              {form.variants.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  {form.variants.map((variant, index) => (
+                    <div
+                      key={variant.id}
+                      className="grid gap-3 rounded-xl border border-[#ead8c7] bg-white p-3 sm:grid-cols-[1fr_180px_auto]"
+                    >
+                      <input
+                        value={variant.name}
+                        onChange={(e) => updateVariant(variant.id, "name", e.target.value)}
+                        placeholder={`Variant ${index + 1} name (e.g. 12 × 18 inch)`}
+                        className="w-full rounded-xl border border-[#dcc8b5] px-4 py-3 outline-none focus:border-[#a51c24]"
+                      />
+
+                      <input
+                        type="number"
+                        min="0"
+                        value={variant.price}
+                        onChange={(e) => updateVariant(variant.id, "price", e.target.value)}
+                        placeholder="Price (₹)"
+                        className="w-full rounded-xl border border-[#dcc8b5] px-4 py-3 outline-none focus:border-[#a51c24]"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => removeVariant(variant.id)}
+                        className="rounded-xl border border-red-200 px-4 py-3 font-bold text-red-600 hover:bg-red-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* DESCRIPTION */}
@@ -595,6 +903,12 @@ export default function AdminProductsPage() {
                     <span className="mt-3 inline-block rounded-full bg-[#fff0df] px-3 py-1 text-xs font-bold text-[#a51c24]">
                       {product.badge}
                     </span>
+                  )}
+
+                  {product.image_urls && product.image_urls.length > 1 && (
+                    <p className="mt-2 text-xs font-bold text-[#795c52]">
+                      📸 {product.image_urls.length} product photos
+                    </p>
                   )}
 
                   {product.customizable && (
