@@ -76,8 +76,19 @@ const legacyProductImages: Record<string, string> = {
   "Personalised Couple Gift": "/products/couple-gift.jpg",
 };
 
+const getProductImageCandidates = (product: Product) =>
+  Array.from(
+    new Set(
+      [
+        product.image?.trim(),
+        ...(product.image_urls ?? []).map((url) => url?.trim()),
+        legacyProductImages[product.name],
+      ].filter((url): url is string => Boolean(url))
+    )
+  );
+
 const getProductImage = (product: Product) =>
-  product.image?.trim() || product.image_urls?.[0]?.trim() || legacyProductImages[product.name] || "";
+  getProductImageCandidates(product)[0] || "";
 
 export default function Home() {
   const router = useRouter();
@@ -866,9 +877,31 @@ export default function Home() {
                     src={getProductImage(product)}
                     alt={product.name}
                     className="relative z-10 h-full w-full bg-[#fff8f2] object-contain"
-                    loading="lazy"
+                    loading="eager"
+                    decoding="async"
                     onError={(event) => {
-                      event.currentTarget.style.display = "none";
+                      const image = event.currentTarget;
+                      const candidates = getProductImageCandidates(product);
+                      const currentIndex = candidates.findIndex((candidate) => {
+                        try {
+                          return (
+                            new URL(candidate, window.location.href).href ===
+                            image.src
+                          );
+                        } catch {
+                          return false;
+                        }
+                      });
+                      const nextSource =
+                        currentIndex >= 0 && currentIndex + 1 < candidates.length
+                          ? candidates[currentIndex + 1]
+                          : "";
+
+                      if (nextSource) {
+                        image.src = nextSource;
+                      } else {
+                        image.style.display = "none";
+                      }
                     }}
                   />
                 )}
