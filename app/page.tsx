@@ -45,16 +45,8 @@ type CartItem = {
   variantId?: string;
   variantName?: string;
   variantPrice?: number;
+  referenceImageUrl?: string;
 };
-
-const makeStoredCartKey = (item: CartItem) =>
-  [
-    String(item.id),
-    item.variantId || "base",
-    item.customName || "",
-    item.customSize || "",
-    item.instructions || "",
-  ].join("::");
 
 type Product = (typeof products)[number] & {
   in_stock?: boolean;
@@ -107,16 +99,7 @@ export default function Home() {
         if (savedCart) {
           const parsedCart = JSON.parse(savedCart);
           if (Array.isArray(parsedCart)) {
-            const normalizedCart: CartItem[] = parsedCart.map((item) => ({
-              ...item,
-              cartKey: makeStoredCartKey(item),
-            }));
-
-            setCart(normalizedCart);
-            localStorage.setItem(
-              "devbhoomi-cart",
-              JSON.stringify(normalizedCart)
-            );
+            setCart(parsedCart);
           }
         }
       } catch (error) {
@@ -343,13 +326,15 @@ export default function Home() {
     customName?: string;
     customSize?: string;
     instructions?: string;
+    referenceImageUrl?: string;
   }) =>
     [
-      String(item.id),
-      item.variantId || "base",
-      item.customName || "",
-      item.customSize || "",
-      item.instructions || "",
+      item.id,
+      item.variantId ?? "base",
+      item.customName ?? "",
+      item.customSize ?? "",
+      item.instructions ?? "",
+      item.referenceImageUrl ?? "",
     ].join("::");
 
   const addToCart = (
@@ -358,10 +343,10 @@ export default function Home() {
       customName?: string;
       customSize?: string;
       instructions?: string;
+      referenceImageUrl?: string;
       variantId?: string;
       variantName?: string;
       variantPrice?: number;
-      quantity?: number;
     }
   ) => {
     const product = storeProducts.find((item) => item.id === id);
@@ -376,45 +361,46 @@ export default function Home() {
       return;
     }
 
-    const newItem: CartItem = {
+    const newItem = {
       id,
-      quantity: Math.max(1, customization?.quantity ?? 1),
-      customName: customization?.customName,
-      customSize: customization?.customSize,
-      instructions: customization?.instructions,
       variantId: customization?.variantId,
       variantName: customization?.variantName,
       variantPrice: customization?.variantPrice ?? product.price,
+      customName: customization?.customName,
+      customSize: customization?.customSize,
+      instructions: customization?.instructions,
+      referenceImageUrl: customization?.referenceImageUrl,
     };
 
     const newCartKey = makeCartKey(newItem);
 
     setCart((current) => {
-      const existingIndex = current.findIndex(
+      const existing = current.find(
         (item) => makeCartKey(item) === newCartKey
       );
 
-      const updatedCart: CartItem[] =
-        existingIndex >= 0
-          ? current.map((item, index) =>
-              index === existingIndex
-                ? {
-                    ...item,
-                    cartKey: newCartKey,
-                    quantity: item.quantity + newItem.quantity,
-                    variantId: newItem.variantId,
-                    variantName: newItem.variantName,
-                    variantPrice: newItem.variantPrice,
-                  }
-                : item
-            )
-          : [
-              ...current,
-              {
-                ...newItem,
-                cartKey: newCartKey,
-              },
-            ];
+      const updatedCart: CartItem[] = existing
+        ? current.map((item) =>
+            makeCartKey(item) === newCartKey
+              ? {
+                  ...item,
+                  cartKey: newCartKey,
+                  quantity: item.quantity + 1,
+                  variantId: newItem.variantId,
+                  variantName: newItem.variantName,
+                  variantPrice: newItem.variantPrice,
+                  referenceImageUrl: newItem.referenceImageUrl,
+                }
+              : item
+          )
+        : [
+            ...current,
+            {
+              ...newItem,
+              quantity: 1,
+              cartKey: newCartKey,
+            },
+          ];
 
       localStorage.setItem("devbhoomi-cart", JSON.stringify(updatedCart));
       return updatedCart;
@@ -508,17 +494,11 @@ export default function Home() {
     0
   );
 
-  // This is the central customisation function.
-  // Every "Customize This Product" button uses this same function,
-  // so the previously selected product is remembered.
+  // Product-card customization now opens the same Product Details modal
+  // used by "View Details", so customers can customize the actual product
+  // without being sent down to the standalone Custom Request section.
   const openCustomize = (product: Product) => {
-    setCustomProduct(product);
-    setCustomType(product.name);
-
-    document.getElementById("custom")?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
+    setSelectedProduct(product);
   };
 
   const handleCustomTypeChange = (value: string) => {

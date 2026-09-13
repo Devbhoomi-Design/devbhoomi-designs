@@ -13,6 +13,46 @@ export default function LoginPage() {
   const [message, setMessage] = useState("");
   const [messageType, setMessageType] = useState<"error" | "success">("error");
 
+  const handleForgotPassword = async () => {
+    setMessage("");
+
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      setMessageType("error");
+      setMessage("Please enter your email address first.");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(
+        cleanEmail,
+        {
+          redirectTo: `${window.location.origin}/reset-password`,
+        }
+      );
+
+      if (error) throw error;
+
+      setMessageType("success");
+      setMessage(
+        "Password reset link sent! Please check your email and follow the link to create a new password."
+      );
+    } catch (error) {
+      console.error("Password reset error:", error);
+      setMessageType("error");
+      setMessage(
+        error instanceof Error
+          ? error.message
+          : "Could not send the password reset email. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAuth = async () => {
     setMessage("");
 
@@ -214,6 +254,19 @@ export default function LoginPage() {
               </p>
             )}
           </div>
+
+          {!isSignup && (
+            <div className="-mt-2 mb-5 text-right">
+              <button
+                type="button"
+                onClick={handleForgotPassword}
+                disabled={loading}
+                className="text-sm font-bold text-[#a51c24] underline underline-offset-2 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Forgot password?
+              </button>
+            </div>
+          )}
 
           {message && (
             <div

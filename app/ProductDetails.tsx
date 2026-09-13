@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import { Product } from "./products";
+import { supabase } from "@/app/lib/supabase";
 
 type ProductVariant = {
   id: string;
@@ -34,6 +35,7 @@ type ProductDetailsProps = {
       customName?: string;
       customSize?: string;
       instructions?: string;
+      referenceImageUrl?: string;
       variantId?: string;
       variantName?: string;
       variantPrice?: number;
@@ -130,7 +132,7 @@ export default function ProductDetails({
     setQuantity((current) => Math.max(1, current - 1));
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     const customization = product.customizable
       ? {
           customName: customName.trim(),
@@ -152,7 +154,51 @@ export default function ProductDetails({
             quantity,
           };
 
-    onAddToCart(product.id, customization);
+    let referenceImageUrl: string | undefined;
+
+    if (referenceImage) {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        alert("Please login before uploading a reference image.");
+        return;
+      }
+
+      const extension =
+        referenceImage.name.split(".").pop()?.toLowerCase() || "jpg";
+      const safeExtension = ["jpg", "jpeg", "png", "webp"].includes(extension)
+        ? extension
+        : "jpg";
+      const filePath = `orders/${user.id}/${crypto.randomUUID()}.${safeExtension}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("custom-requests")
+        .upload(filePath, referenceImage, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: referenceImage.type || "image/jpeg",
+        });
+
+      if (uploadError) {
+        console.error("Reference image upload error:", uploadError);
+        alert(`Could not upload the reference image: ${uploadError.message}`);
+        return;
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from("custom-requests")
+        .getPublicUrl(filePath);
+
+      referenceImageUrl = publicUrlData.publicUrl;
+    }
+
+    const finalCustomization = referenceImageUrl
+      ? { ...customization, referenceImageUrl }
+      : customization;
+
+    await onAddToCart(product.id, finalCustomization);
     onClose();
   };
 
