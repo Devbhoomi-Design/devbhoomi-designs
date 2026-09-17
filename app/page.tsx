@@ -113,6 +113,12 @@ export default function Home() {
             setCart(parsedCart);
           }
         }
+
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("openCart") === "1") {
+          setCartOpen(true);
+          window.history.replaceState({}, "", "/");
+        }
       } catch (error) {
         console.error("Could not load cart:", error);
       }
@@ -504,6 +510,24 @@ export default function Home() {
     (total, item) => total + item.variantPrice * item.quantity,
     0
   );
+
+  const handleCartImageError = (
+    event: React.SyntheticEvent<HTMLImageElement>,
+    product: Product
+  ) => {
+    const image = event.currentTarget;
+    const candidates = getProductImageCandidates(product);
+    const currentIndex = Number(image.dataset.imageIndex || "0");
+    const nextIndex = currentIndex + 1;
+
+    if (nextIndex < candidates.length) {
+      image.dataset.imageIndex = String(nextIndex);
+      image.src = candidates[nextIndex];
+      return;
+    }
+
+    image.style.display = "none";
+  };
 
   // Product-card customization now opens the same Product Details modal
   // used by "View Details", so customers can customize the actual product
@@ -1352,8 +1376,21 @@ export default function Home() {
                       className="rounded-2xl border border-[#ead8c7] bg-white p-4"
                     >
                       <div className="flex gap-4">
-                        <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-xl bg-[#9e2025] text-3xl text-[#ffd99c]">
-                          {categoryIcons[product.category] || "✦"}
+                        <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-[#ead8c7] bg-[#fff8f2]">
+                          {getProductImage(product) ? (
+                            <img
+                              src={getProductImage(product)}
+                              alt={product.name}
+                              data-image-index="0"
+                              className="h-full w-full object-contain"
+                              loading="eager"
+                              onError={(event) => handleCartImageError(event, product)}
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-3xl text-[#a51c24]">
+                              {categoryIcons[product.category] || "✦"}
+                            </div>
+                          )}
                         </div>
 
                         <div className="min-w-0 flex-1">
