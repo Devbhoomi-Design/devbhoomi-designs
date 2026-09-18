@@ -435,14 +435,7 @@ export default function CheckoutPage() {
           city: city.trim(),
         },
         // UPI only for this first payment rollout.
-        method: {
-          upi: 1,
-          card: 0,
-          netbanking: 0,
-          wallet: 0,
-          emi: 0,
-          paylater: 0,
-        },
+        
         theme: { color: "#a51c24" },
         handler: async (response) => {
           try {
