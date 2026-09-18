@@ -50,6 +50,61 @@ const legacyProductImages: Record<string, string> = {
   "Personalised Couple Gift": "/products/couple-gift.jpg",
 };
 
+
+
+const loadRazorpayScript = () =>
+  new Promise<void>((resolve, reject) => {
+    if (typeof window !== "undefined" && window.Razorpay) {
+      resolve();
+      return;
+    }
+
+    const existing = document.getElementById("razorpay-checkout-script");
+    if (existing) {
+      existing.addEventListener("load", () => resolve(), { once: true });
+      existing.addEventListener("error", () => reject(new Error("Could not load Razorpay.")), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = "razorpay-checkout-script";
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Could not load Razorpay checkout. Please check your internet connection."));
+    document.body.appendChild(script);
+  });
+
+declare global {
+  interface Window {
+    Razorpay?: new (options: RazorpayOptions) => RazorpayInstance;
+  }
+}
+
+type RazorpayOptions = {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  prefill?: { name?: string; email?: string; contact?: string };
+  notes?: Record<string, string>;
+  theme?: { color?: string };
+  method?: Record<string, number>;
+  handler: (response: {
+    razorpay_order_id: string;
+    razorpay_payment_id: string;
+    razorpay_signature: string;
+  }) => void | Promise<void>;
+  modal?: { ondismiss?: () => void };
+};
+
+type RazorpayInstance = {
+  open: () => void;
+  on: (event: string, callback: (response: unknown) => void) => void;
+};
+
 export default function CheckoutPage() {
   const router = useRouter();
   const [name, setName] = useState("");
@@ -322,64 +377,161 @@ export default function CheckoutPage() {
     setPlacingOrder(true);
 
     try {
-      // Save/update the selected delivery address before creating the order.
+      // Keep the customer's chosen address available for future orders.
       await saveCurrentAddress(user.id);
 
-      const orderId = `DBD-${pincode}-${total}-${crypto
-        .randomUUID()
-        .slice(0, 8)
-        .toUpperCase()}`;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
 
-      const { error } = await supabase.from("orders").insert({
-        order_id: orderId,
-        user_id: user.id,
-        customer_name: name.trim(),
-        customer_phone: phone,
-        customer_address: address.trim(),
-        customer_city: city.trim(),
-        customer_pincode: pincode,
-        items: cart,
-        subtotal,
-        delivery,
-        total,
-        status: "New Order",
-      });
-
-      if (error) {
-        console.error("Supabase order error:", error);
-        alert("Could not save your order. Please try again.");
+      if (!accessToken) {
+        router.replace("/login?next=/checkout");
         return;
       }
 
-      const localOrder = {
-        orderId,
-        customer: {
-          name: name.trim(),
-          phone,
-          address: address.trim(),
-          city: city.trim(),
-          state: state.trim(),
-          pincode,
+      // The server recalculates the amount from the database. Never trust a
+      // price coming from localStorage or the browser for the payment amount.
+      const createResponse = await fetch("/api/razorpay/create-order", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
         },
-        items: cart,
-        subtotal,
-        delivery,
-        total,
-        status: "New Order",
-        createdAt: new Date().toISOString(),
+        body: JSON.stringify({ items: cart }),
+      });
+
+      const createData = (await createResponse.json()) as {
+        error?: string;
+        razorpayOrderId?: string;
+        amount?: number;
+        currency?: string;
+        keyId?: string;
+        total?: number;
       };
 
-      localStorage.setItem("devbhoomi-last-order", JSON.stringify(localOrder));
-      localStorage.removeItem("devbhoomi-cart");
-      router.push("/order-success");
+      if (!createResponse.ok || !createData.razorpayOrderId || !createData.keyId || !createData.amount) {
+        throw new Error(createData.error || "Could not start the payment.");
+      }
+
+      await loadRazorpayScript();
+
+      if (!window.Razorpay) {
+        throw new Error("Razorpay checkout could not be initialized.");
+      }
+
+      const razorpay = new window.Razorpay({
+        key: createData.keyId,
+        amount: createData.amount,
+        currency: createData.currency || "INR",
+        name: "Devbhoomi Designs",
+        description: "Devbhoomi Designs order payment",
+        order_id: createData.razorpayOrderId,
+        prefill: {
+          name: name.trim(),
+          email: user.email || "",
+          contact: phone,
+        },
+        notes: {
+          customer_name: name.trim(),
+          city: city.trim(),
+        },
+        // UPI only for this first payment rollout.
+        method: {
+          upi: 1,
+          card: 0,
+          netbanking: 0,
+          wallet: 0,
+          emi: 0,
+          paylater: 0,
+        },
+        theme: { color: "#a51c24" },
+        handler: async (response) => {
+          try {
+            const verifyResponse = await fetch("/api/razorpay/verify", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${accessToken}`,
+              },
+              body: JSON.stringify({
+                ...response,
+                items: cart,
+                customer: {
+                  name: name.trim(),
+                  phone,
+                  address: address.trim(),
+                  city: city.trim(),
+                  state: state.trim(),
+                  pincode,
+                },
+              }),
+            });
+
+            const verifyData = (await verifyResponse.json()) as {
+              error?: string;
+              orderId?: string;
+              total?: number;
+              status?: string;
+              paymentStatus?: string;
+            };
+
+            if (!verifyResponse.ok || !verifyData.orderId) {
+              throw new Error(verifyData.error || "Payment verification failed. Please contact support before trying again.");
+            }
+
+            const finalTotal = Number(verifyData.total || createData.total || total);
+            const localOrder = {
+              orderId: verifyData.orderId,
+              customer: {
+                name: name.trim(),
+                phone,
+                address: address.trim(),
+                city: city.trim(),
+                state: state.trim(),
+                pincode,
+              },
+              items: cart,
+              subtotal: finalTotal,
+              delivery: 0,
+              total: finalTotal,
+              status: verifyData.status || "New Order",
+              paymentStatus: verifyData.paymentStatus || "Paid",
+              createdAt: new Date().toISOString(),
+            };
+
+            localStorage.setItem("devbhoomi-last-order", JSON.stringify(localOrder));
+            localStorage.removeItem("devbhoomi-cart");
+            router.push("/order-success");
+          } catch (error) {
+            console.error("Payment verification error:", error);
+            alert(
+              error instanceof Error
+                ? error.message
+                : "Payment verification failed. Please contact support before trying again."
+            );
+          } finally {
+            setPlacingOrder(false);
+          }
+        },
+        modal: {
+          ondismiss: () => {
+            setPlacingOrder(false);
+          },
+        },
+      });
+
+      razorpay.on("payment.failed", () => {
+        setPlacingOrder(false);
+        alert("Payment failed or was cancelled. Your cart is still saved, so you can try again.");
+      });
+
+      razorpay.open();
     } catch (error) {
-      console.error("Order error:", error);
+      console.error("Payment start error:", error);
       alert(
         error instanceof Error
           ? error.message
-          : "Something went wrong. Please try again."
+          : "Could not start the payment. Please try again."
       );
-    } finally {
       setPlacingOrder(false);
     }
   };
@@ -724,11 +876,11 @@ export default function CheckoutPage() {
                   disabled={placingOrder}
                   className="mt-8 w-full rounded-full bg-[#a51c24] px-6 py-4 font-bold text-white transition hover:bg-[#85161d] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {placingOrder ? "Saving Order..." : "Place Order"}
+                  {placingOrder ? "Opening UPI Payment..." : `Pay ₹${total.toLocaleString("en-IN")}`}
                 </button>
 
                 <p className="mt-4 text-center text-xs text-[#795c52]">
-                  Secure checkout • Pan India delivery
+                  Secure payment by Razorpay • UPI • Pan India delivery
                 </p>
               </>
             )}

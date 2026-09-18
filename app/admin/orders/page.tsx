@@ -66,6 +66,10 @@ type Order = {
   total: number;
   createdAt: string;
   status?: OrderStatus;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  razorpayOrderId?: string;
+  razorpayPaymentId?: string;
 };
 
 export default function AdminOrdersPage() {
@@ -154,6 +158,22 @@ if (!isAdmin) {
         total: Number(row.total || 0),
         createdAt: row.created_at,
         status: row.status || "New Order",
+        paymentStatus:
+          typeof row.payment_status === "string"
+            ? row.payment_status
+            : undefined,
+        paymentMethod:
+          typeof row.payment_method === "string"
+            ? row.payment_method
+            : undefined,
+        razorpayOrderId:
+          typeof row.razorpay_order_id === "string"
+            ? row.razorpay_order_id
+            : undefined,
+        razorpayPaymentId:
+          typeof row.razorpay_payment_id === "string"
+            ? row.razorpay_payment_id
+            : undefined,
       }));
 
       const productIds = Array.from(
@@ -812,7 +832,7 @@ if (!isAdmin) {
 
                       </div>
 
-                      {/* TOTAL */}
+                      {/* TOTAL + PAYMENT */}
 
                       <div>
 
@@ -830,6 +850,38 @@ if (!isAdmin) {
                         <p className="mt-1 text-sm text-green-600">
                           Free Delivery
                         </p>
+
+                        <div className="mt-5 rounded-2xl border border-[#ead8c7] bg-[#fffaf4] p-4">
+                          <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">
+                            Payment
+                          </p>
+
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-black ${
+                                (order.paymentStatus || "").toLowerCase() ===
+                                "paid"
+                                  ? "bg-green-100 text-green-700"
+                                  : "bg-yellow-100 text-yellow-700"
+                              }`}
+                            >
+                              {(order.paymentStatus || "Not Recorded")
+                                .charAt(0)
+                                .toUpperCase() +
+                                (order.paymentStatus || "Not Recorded").slice(1)}
+                            </span>
+
+                            <span className="text-sm font-semibold text-[#795c52]">
+                              {order.paymentMethod || "Payment details unavailable"}
+                            </span>
+                          </div>
+
+                          {order.razorpayPaymentId && (
+                            <p className="mt-2 break-all text-xs text-[#795c52]">
+                              Razorpay Payment ID: {order.razorpayPaymentId}
+                            </p>
+                          )}
+                        </div>
 
                       </div>
 
