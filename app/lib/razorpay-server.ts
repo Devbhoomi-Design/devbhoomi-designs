@@ -582,13 +582,14 @@ export const fetchRazorpayPayment =
     );
 
     const data =
-      (await response.json()) as {
-        id?: string;
-        order_id?: string;
-        amount?: number;
-        currency?: string;
-        status?: string;
-      };
+  (await response.json()) as {
+    id?: string;
+    order_id?: string;
+    amount?: number;
+    currency?: string;
+    status?: string;
+    method?: string;
+  };
 
     if (
       !response.ok ||

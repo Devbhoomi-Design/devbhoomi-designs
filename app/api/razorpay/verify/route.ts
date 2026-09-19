@@ -1,99 +1,120 @@
 import { NextResponse } from "next/server";
-import crypto from "crypto";
 
 import {
   fetchRazorpayOrder,
   fetchRazorpayPayment,
   getAuthedUser,
   getServiceRoleClient,
-  normalizeCart,
   verifyRazorpaySignature,
 } from "@/app/lib/razorpay-server";
 
+type VerifyBody = {
+  razorpay_order_id?: string;
+  razorpay_payment_id?: string;
+  razorpay_signature?: string;
+
+  customer?: {
+    name?: string;
+    phone?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    pincode?: string;
+  };
+};
+
 export async function POST(request: Request) {
   try {
-    const { user } = await getAuthedUser(request);
+    const { user } =
+      await getAuthedUser(request);
 
-    const body = (await request.json()) as {
-      razorpay_order_id?: string;
-      razorpay_payment_id?: string;
-      razorpay_signature?: string;
-      items?: unknown[];
-      customer?: {
-        name?: string;
-        phone?: string;
-        address?: string;
-        city?: string;
-        state?: string;
-        pincode?: string;
-      };
-    };
+    const body =
+      (await request.json()) as VerifyBody;
 
-    const razorpayOrderId = body.razorpay_order_id?.trim();
-    const razorpayPaymentId = body.razorpay_payment_id?.trim();
-    const razorpaySignature = body.razorpay_signature?.trim();
-    const customer = body.customer || {};
+    const razorpayOrderId =
+      body.razorpay_order_id?.trim();
 
-    if (!razorpayOrderId || !razorpayPaymentId || !razorpaySignature) {
-      return NextResponse.json(
-        { error: "Missing Razorpay payment details." },
-        { status: 400 }
-      );
-    }
+    const razorpayPaymentId =
+      body.razorpay_payment_id?.trim();
+
+    const razorpaySignature =
+      body.razorpay_signature?.trim();
 
     if (
-      !customer.name?.trim() ||
-      !/^[6-9]\d{9}$/.test(customer.phone || "")
+      !razorpayOrderId ||
+      !razorpayPaymentId ||
+      !razorpaySignature
     ) {
       return NextResponse.json(
-        { error: "Customer contact details are invalid." },
+        {
+          error:
+            "Missing Razorpay payment details.",
+        },
         { status: 400 }
       );
     }
 
-    if (
-      !customer.address?.trim() ||
-      !customer.city?.trim() ||
-      !customer.state?.trim() ||
-      !/^\d{6}$/.test(customer.pincode || "")
-    ) {
-      return NextResponse.json(
-        { error: "Delivery address is invalid." },
-        { status: 400 }
-      );
-    }
+    // --------------------------------------------------
+    // Verify Razorpay signature
+    // --------------------------------------------------
 
-    const signatureValid = verifyRazorpaySignature(
-      razorpayOrderId,
-      razorpayPaymentId,
-      razorpaySignature
-    );
+    const signatureValid =
+      verifyRazorpaySignature(
+        razorpayOrderId,
+        razorpayPaymentId,
+        razorpaySignature
+      );
 
     if (!signatureValid) {
       return NextResponse.json(
-        { error: "Payment signature verification failed." },
+        {
+          error:
+            "Payment signature verification failed.",
+        },
         { status: 400 }
       );
     }
 
-    const razorpayOrder = await fetchRazorpayOrder(razorpayOrderId);
+    // --------------------------------------------------
+    // Fetch payment directly from Razorpay
+    // --------------------------------------------------
 
-    if (razorpayOrder.currency !== "INR") {
-      return NextResponse.json(
-        { error: "Unexpected payment currency." },
-        { status: 400 }
+    const razorpayOrder =
+      await fetchRazorpayOrder(
+        razorpayOrderId
       );
-    }
 
     const razorpayPayment =
-      await fetchRazorpayPayment(razorpayPaymentId);
+      await fetchRazorpayPayment(
+        razorpayPaymentId
+      );
+
+    // --------------------------------------------------
+    // Validate order/payment relationship
+    // --------------------------------------------------
 
     if (
-      razorpayPayment.order_id !== razorpayOrderId ||
+      razorpayOrder.currency !== "INR"
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            "Unexpected payment currency.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (
+      razorpayPayment.order_id !==
+        razorpayOrderId ||
       razorpayPayment.currency !== "INR"
     ) {
       return NextResponse.json(
-        { error: "Payment does not match the selected Razorpay order." },
+        {
+          error:
+            "Payment does not match the selected Razorpay order.",
+        },
         { status: 400 }
       );
     }
@@ -103,18 +124,42 @@ export async function POST(request: Request) {
       razorpayPayment.status !== "captured"
     ) {
       return NextResponse.json(
-        { error: "Payment has not been fully captured yet." },
+        {
+          error:
+            "Payment has not been fully captured yet.",
+        },
         { status: 400 }
       );
     }
 
-    const adminDb = getServiceRoleClient();
+    const db =
+      getServiceRoleClient();
 
-    // Prevent duplicate orders for the same Razorpay payment.
-    const { data: existingOrder, error: existingError } = await adminDb
+    // --------------------------------------------------
+    // Find the pending order created before checkout
+    // --------------------------------------------------
+
+    const {
+      data: existingOrder,
+      error: existingError,
+    } = await db
       .from("orders")
-      .select("order_id, total, status, payment_status")
-      .eq("razorpay_payment_id", razorpayPaymentId)
+      .select(
+        `
+          order_id,
+          user_id,
+          total,
+          status,
+          payment_status,
+          payment_method,
+          razorpay_order_id,
+          razorpay_payment_id
+        `
+      )
+      .eq(
+        "razorpay_order_id",
+        razorpayOrderId
+      )
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -122,82 +167,114 @@ export async function POST(request: Request) {
       throw existingError;
     }
 
-    if (existingOrder) {
-      return NextResponse.json({
-        orderId: existingOrder.order_id,
-        total: Number(existingOrder.total || 0),
-        status: existingOrder.status || "New Order",
-        paymentStatus: existingOrder.payment_status || "Paid",
-      });
+    if (!existingOrder) {
+      return NextResponse.json(
+        {
+          error:
+            "Your payment was received, but the order record could not be found. Please contact support with your Razorpay Payment ID.",
+        },
+        { status: 500 }
+      );
     }
 
-    // Recalculate the cart total from Supabase.
-    const totals = await normalizeCart(body.items || [], adminDb);
+    // --------------------------------------------------
+    // Verify amount against our stored order total
+    // --------------------------------------------------
 
-    const expectedAmount = Math.round(totals.total * 100);
+    const expectedAmount =
+      Math.round(
+        Number(existingOrder.total || 0) *
+          100
+      );
 
     if (
-      Number(razorpayOrder.amount) !== expectedAmount ||
-      Number(razorpayPayment.amount) !== expectedAmount
+      Number(razorpayOrder.amount) !==
+        expectedAmount ||
+      Number(razorpayPayment.amount) !==
+        expectedAmount
     ) {
       return NextResponse.json(
-        { error: "Payment amount does not match the current order total." },
+        {
+          error:
+            "Payment amount does not match the order total.",
+        },
         { status: 400 }
       );
     }
 
-    const orderId = `DBD-${customer.pincode}-${crypto
-      .randomUUID()
-      .slice(0, 8)
-      .toUpperCase()}`;
+    // --------------------------------------------------
+    // Payment method
+    // --------------------------------------------------
 
-    const { error: insertError } = await adminDb.from("orders").insert({
-      order_id: orderId,
-      user_id: user.id,
-      customer_name: customer.name.trim(),
-      customer_phone: customer.phone,
-      customer_address: customer.address.trim(),
-      customer_city: customer.city.trim(),
-      customer_pincode: customer.pincode,
+    const paymentMethod =
+      razorpayPayment.method
+        ? `${razorpayPayment.method.toUpperCase()} (Razorpay)`
+        : "Razorpay";
 
-      items: totals.items,
-      subtotal: totals.subtotal,
-      delivery: totals.delivery,
-      total: totals.total,
+    // --------------------------------------------------
+    // Update existing order
+    // --------------------------------------------------
 
-      status: "New Order",
+    const {
+      error: updateError,
+    } = await db
+      .from("orders")
+      .update({
+        payment_status: "Paid",
+        payment_method: paymentMethod,
 
-      payment_status: "Paid",
-      payment_method: "UPI (Razorpay)",
+        razorpay_payment_id:
+          razorpayPaymentId,
 
-      razorpay_order_id: razorpayOrderId,
-      razorpay_payment_id: razorpayPaymentId,
-      razorpay_signature: razorpaySignature,
-    });
+        razorpay_signature:
+          razorpaySignature,
 
-    if (insertError) {
+        updated_at:
+          new Date().toISOString(),
+      })
+      .eq(
+        "order_id",
+        existingOrder.order_id
+      )
+      .eq("user_id", user.id);
+
+    if (updateError) {
       console.error(
-        "Supabase paid order insert error:",
-        insertError
+        "Paid order update error:",
+        updateError
       );
 
       return NextResponse.json(
         {
           error:
-            "Payment was verified, but the order could not be saved. Please contact support with your payment ID.",
+            "Payment was verified, but the order could not be updated. Please contact support with your payment ID.",
         },
         { status: 500 }
       );
     }
 
     return NextResponse.json({
-      orderId,
-      total: totals.total,
-      status: "New Order",
+      success: true,
+
+      orderId:
+        existingOrder.order_id,
+
+      total:
+        Number(existingOrder.total || 0),
+
+      status:
+        existingOrder.status ||
+        "New Order",
+
       paymentStatus: "Paid",
+
+      paymentMethod,
     });
   } catch (error) {
-    console.error("Razorpay verify error:", error);
+    console.error(
+      "Razorpay verify error:",
+      error
+    );
 
     return NextResponse.json(
       {

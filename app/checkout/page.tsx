@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Check, MapPin, Plus, Star } from "lucide-react";
+
 import { supabase } from "../lib/supabase";
 import { products } from "../products";
 
@@ -50,34 +51,69 @@ const legacyProductImages: Record<string, string> = {
   "Personalised Couple Gift": "/products/couple-gift.jpg",
 };
 
-
-
 const loadRazorpayScript = () =>
   new Promise<void>((resolve, reject) => {
-    if (typeof window !== "undefined" && window.Razorpay) {
+    if (
+      typeof window !== "undefined" &&
+      window.Razorpay
+    ) {
       resolve();
       return;
     }
 
-    const existing = document.getElementById("razorpay-checkout-script");
+    const existing = document.getElementById(
+      "razorpay-checkout-script"
+    );
+
     if (existing) {
-      existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("Could not load Razorpay.")), { once: true });
+      existing.addEventListener(
+        "load",
+        () => resolve(),
+        { once: true }
+      );
+
+      existing.addEventListener(
+        "error",
+        () =>
+          reject(
+            new Error(
+              "Could not load Razorpay."
+            )
+          ),
+        { once: true }
+      );
+
       return;
     }
 
-    const script = document.createElement("script");
-    script.id = "razorpay-checkout-script";
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    const script =
+      document.createElement("script");
+
+    script.id =
+      "razorpay-checkout-script";
+
+    script.src =
+      "https://checkout.razorpay.com/v1/checkout.js";
+
     script.async = true;
+
     script.onload = () => resolve();
-    script.onerror = () => reject(new Error("Could not load Razorpay checkout. Please check your internet connection."));
+
+    script.onerror = () =>
+      reject(
+        new Error(
+          "Could not load Razorpay checkout. Please check your internet connection."
+        )
+      );
+
     document.body.appendChild(script);
   });
 
 declare global {
   interface Window {
-    Razorpay?: new (options: RazorpayOptions) => RazorpayInstance;
+    Razorpay?: new (
+      options: RazorpayOptions
+    ) => RazorpayInstance;
   }
 }
 
@@ -88,471 +124,1064 @@ type RazorpayOptions = {
   name: string;
   description: string;
   order_id: string;
-  prefill?: { name?: string; email?: string; contact?: string };
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
   notes?: Record<string, string>;
-  theme?: { color?: string };
-  method?: Record<string, number>;
+  theme?: {
+    color?: string;
+  };
   handler: (response: {
     razorpay_order_id: string;
     razorpay_payment_id: string;
     razorpay_signature: string;
   }) => void | Promise<void>;
-  modal?: { ondismiss?: () => void };
+  modal?: {
+    ondismiss?: () => void;
+  };
 };
 
 type RazorpayInstance = {
   open: () => void;
-  on: (event: string, callback: (response: unknown) => void) => void;
+  on: (
+    event: string,
+    callback: (response: unknown) => void
+  ) => void;
 };
 
 export default function CheckoutPage() {
   const router = useRouter();
+
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [pincode, setPincode] = useState("");
-  const [addressLabel, setAddressLabel] = useState("Home");
-  const [saveNewAddress, setSaveNewAddress] = useState(true);
 
-  const [addresses, setAddresses] = useState<Address[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
-  const [showNewAddressForm, setShowNewAddressForm] = useState(false);
-  const [addressesLoaded, setAddressesLoaded] = useState(false);
+  const [addressLabel, setAddressLabel] =
+    useState("Home");
 
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [productMap, setProductMap] = useState<Record<number, ProductInfo>>({});
-  const [cartLoaded, setCartLoaded] = useState(false);
-  const [loadingProfile, setLoadingProfile] = useState(true);
-  const [placingOrder, setPlacingOrder] = useState(false);
+  const [saveNewAddress, setSaveNewAddress] =
+    useState(true);
 
-  const localProductMap = useMemo<Record<number, ProductInfo>>(
-    () =>
-      Object.fromEntries(
-        products.map((product) => [
-          product.id,
-          { name: product.name, price: Number(product.price) },
-        ])
-      ),
+  const [addresses, setAddresses] =
+    useState<Address[]>([]);
+
+  const [selectedAddressId, setSelectedAddressId] =
+    useState<string | null>(null);
+
+  const [showNewAddressForm, setShowNewAddressForm] =
+    useState(false);
+
+  const [addressesLoaded, setAddressesLoaded] =
+    useState(false);
+
+  const [cart, setCart] = useState<CartItem[]>(
     []
   );
+
+  const [productMap, setProductMap] =
+    useState<Record<number, ProductInfo>>({});
+
+  const [cartLoaded, setCartLoaded] =
+    useState(false);
+
+  const [loadingProfile, setLoadingProfile] =
+    useState(true);
+
+  const [placingOrder, setPlacingOrder] =
+    useState(false);
+
+  // =====================================================
+  // LOCAL PRODUCT MAP FALLBACK
+  // =====================================================
+
+  const localProductMap =
+    useMemo<Record<number, ProductInfo>>(
+      () =>
+        Object.fromEntries(
+          products.map((product) => [
+            product.id,
+            {
+              name: product.name,
+              price: Number(product.price),
+            },
+          ])
+        ),
+      []
+    );
+
+  // =====================================================
+  // LOAD CART
+  // =====================================================
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
       try {
-        const savedCart = localStorage.getItem("devbhoomi-cart");
+        const savedCart =
+          localStorage.getItem(
+            "devbhoomi-cart"
+          );
+
         if (savedCart) {
-          const parsedCart = JSON.parse(savedCart);
-          setCart(Array.isArray(parsedCart) ? parsedCart : []);
+          const parsedCart =
+            JSON.parse(savedCart);
+
+          setCart(
+            Array.isArray(parsedCart)
+              ? parsedCart
+              : []
+          );
         } else {
           setCart([]);
         }
       } catch (error) {
-        console.error("Could not load cart:", error);
+        console.error(
+          "Could not load cart:",
+          error
+        );
+
         setCart([]);
       } finally {
         setCartLoaded(true);
       }
     }, 0);
 
-    return () => window.clearTimeout(timer);
+    return () =>
+      window.clearTimeout(timer);
   }, []);
 
-  const applyAddress = (savedAddress: Address) => {
-    setSelectedAddressId(savedAddress.id);
+  // =====================================================
+  // APPLY SAVED ADDRESS
+  // =====================================================
+
+  const applyAddress = (
+    savedAddress: Address
+  ) => {
+    setSelectedAddressId(
+      savedAddress.id
+    );
+
     setShowNewAddressForm(false);
+
     setName(savedAddress.full_name);
     setPhone(savedAddress.phone);
-    setAddress(savedAddress.address_line);
+    setAddress(
+      savedAddress.address_line
+    );
     setCity(savedAddress.city);
     setState(savedAddress.state);
     setPincode(savedAddress.pincode);
     setAddressLabel(savedAddress.label);
   };
 
+  // =====================================================
+  // NEW ADDRESS
+  // =====================================================
+
   const clearForNewAddress = () => {
     setSelectedAddressId(null);
     setShowNewAddressForm(true);
+
     setName("");
     setPhone("");
     setAddress("");
     setCity("");
     setState("");
     setPincode("");
+
     setAddressLabel("Home");
     setSaveNewAddress(true);
   };
+
+  // =====================================================
+  // LOAD CUSTOMER DATA
+  // =====================================================
 
   useEffect(() => {
     const loadCustomerData = async () => {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } =
+        await supabase.auth.getUser();
 
       if (!user) {
-        router.replace("/login?next=/checkout");
+        router.replace(
+          "/login?next=/checkout"
+        );
         return;
       }
 
-      const { data: savedAddresses, error: addressError } = await supabase
+      // ---------------------------------------------
+      // LOAD SAVED ADDRESSES
+      // ---------------------------------------------
+
+      const {
+        data: savedAddresses,
+        error: addressError,
+      } = await supabase
         .from("customer_addresses")
-        .select("id, label, full_name, phone, address_line, city, state, pincode, is_default")
-        .order("is_default", { ascending: false })
-        .order("created_at", { ascending: false });
+        .select(
+          "id, label, full_name, phone, address_line, city, state, pincode, is_default"
+        )
+        .order("is_default", {
+          ascending: false,
+        })
+        .order("created_at", {
+          ascending: false,
+        });
 
       if (addressError) {
-        console.error("Could not load addresses:", addressError);
+        console.error(
+          "Could not load addresses:",
+          addressError
+        );
+
         setAddresses([]);
         setAddressesLoaded(true);
         setShowNewAddressForm(true);
-        const metadataName = String(user.user_metadata?.full_name || "").trim();
-        if (metadataName) setName(metadataName);
+
+        const metadataName =
+          String(
+            user.user_metadata?.full_name ||
+              ""
+          ).trim();
+
+        if (metadataName) {
+          setName(metadataName);
+        }
       } else {
-        const list = (savedAddresses || []) as Address[];
+        const list =
+          (savedAddresses || []) as Address[];
+
         setAddresses(list);
         setAddressesLoaded(true);
 
-        const defaultAddress = list.find((item) => item.is_default) ?? list[0];
+        const defaultAddress =
+          list.find(
+            (item) => item.is_default
+          ) ?? list[0];
+
         if (defaultAddress) {
           applyAddress(defaultAddress);
         } else {
           setShowNewAddressForm(true);
-          const metadataName = String(user.user_metadata?.full_name || "").trim();
-          if (metadataName) setName(metadataName);
+
+          const metadataName =
+            String(
+              user.user_metadata?.full_name ||
+                ""
+            ).trim();
+
+          if (metadataName) {
+            setName(metadataName);
+          }
         }
       }
 
-      const { data: productRows, error: productError } = await supabase
+      // ---------------------------------------------
+      // LOAD PRODUCTS
+      // ---------------------------------------------
+
+      const {
+        data: productRows,
+        error: productError,
+      } = await supabase
         .from("products")
-        .select("id, name, price, image, image_urls")
-        .order("id", { ascending: true });
+        .select(
+          "id, name, price, image, image_urls"
+        )
+        .order("id", {
+          ascending: true,
+        });
 
       if (productError) {
-        console.error("Could not load product names:", productError);
+        console.error(
+          "Could not load product names:",
+          productError
+        );
       } else {
-        const map: Record<number, ProductInfo> = {};
-        (productRows || []).forEach((product) => {
-          map[Number(product.id)] = {
-            name: String(product.name || `Product #${product.id}`),
-            price: Number(product.price || 0),
-            image: typeof product.image === "string" ? product.image : undefined,
-            image_urls: Array.isArray(product.image_urls)
-              ? product.image_urls.filter(
-                  (url: unknown): url is string =>
-                    typeof url === "string" && url.trim().length > 0
+        const map: Record<
+          number,
+          ProductInfo
+        > = {};
+
+        (productRows || []).forEach(
+          (product) => {
+            map[Number(product.id)] = {
+              name: String(
+                product.name ||
+                  `Product #${product.id}`
+              ),
+
+              price: Number(
+                product.price || 0
+              ),
+
+              image:
+                typeof product.image ===
+                "string"
+                  ? product.image
+                  : undefined,
+
+              image_urls:
+                Array.isArray(
+                  product.image_urls
                 )
-              : [],
-          };
-        });
+                  ? product.image_urls.filter(
+                      (
+                        url: unknown
+                      ): url is string =>
+                        typeof url ===
+                          "string" &&
+                        url.trim().length >
+                          0
+                    )
+                  : [],
+            };
+          }
+        );
+
         setProductMap(map);
       }
 
       setLoadingProfile(false);
     };
 
-    const timer = window.setTimeout(() => {
-      void loadCustomerData();
-    }, 0);
+    const timer = window.setTimeout(
+      () => {
+        void loadCustomerData();
+      },
+      0
+    );
 
-    return () => window.clearTimeout(timer);
+    return () =>
+      window.clearTimeout(timer);
   }, [router]);
 
-  const getProductInfo = (id: number) => productMap[id] ?? localProductMap[id];
+  // =====================================================
+  // PRODUCT HELPERS
+  // =====================================================
 
-  const getProductImage = (product?: ProductInfo) =>
+  const getProductInfo = (
+    id: number
+  ) =>
+    productMap[id] ??
+    localProductMap[id];
+
+  const getProductImage = (
+    product?: ProductInfo
+  ) =>
     product?.image?.trim() ||
-    product?.image_urls?.find((url) => url.trim()) ||
-    (product ? legacyProductImages[product.name] : undefined) ||
+    product?.image_urls?.find(
+      (url) => url.trim()
+    ) ||
+    (product
+      ? legacyProductImages[
+          product.name
+        ]
+      : undefined) ||
     "";
 
-  const getItemUnitPrice = (item: CartItem) =>
-    Number(item.variantPrice ?? getProductInfo(item.id)?.price ?? 0);
+  const getItemUnitPrice = (
+    item: CartItem
+  ) =>
+    Number(
+      item.variantPrice ??
+        getProductInfo(item.id)?.price ??
+        0
+    );
+
+  // =====================================================
+  // TOTALS
+  // =====================================================
 
   const subtotal = cart.reduce(
-    (sum, item) => sum + getItemUnitPrice(item) * item.quantity,
+    (sum, item) =>
+      sum +
+      getItemUnitPrice(item) *
+        item.quantity,
     0
   );
 
   const delivery = 0;
-  const total = subtotal + delivery;
-  const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
 
-  const saveCurrentAddress = async (userId: string) => {
+  const total =
+    subtotal + delivery;
+
+  const totalItems = cart.reduce(
+    (sum, item) =>
+      sum + item.quantity,
+    0
+  );
+
+  // =====================================================
+  // SAVE CUSTOMER ADDRESS
+  // =====================================================
+
+  const saveCurrentAddress = async (
+    userId: string
+  ) => {
+    // Existing selected address
     if (selectedAddressId) {
-      const { error } = await supabase
-        .from("customer_addresses")
-        .update({
-          label: addressLabel.trim() || "Other",
-          full_name: name.trim(),
-          phone,
-          address_line: address.trim(),
-          city: city.trim(),
-          state: state.trim(),
-          pincode,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", selectedAddressId)
-        .eq("user_id", userId);
+      const { error } =
+        await supabase
+          .from("customer_addresses")
+          .update({
+            label:
+              addressLabel.trim() ||
+              "Other",
 
-      if (error) throw error;
+            full_name:
+              name.trim(),
+
+            phone,
+
+            address_line:
+              address.trim(),
+
+            city:
+              city.trim(),
+
+            state:
+              state.trim(),
+
+            pincode,
+
+            updated_at:
+              new Date().toISOString(),
+          })
+          .eq(
+            "id",
+            selectedAddressId
+          )
+          .eq(
+            "user_id",
+            userId
+          );
+
+      if (error) {
+        throw error;
+      }
+
       return selectedAddressId;
     }
 
-    if (!saveNewAddress) return null;
+    // User doesn't want to save new address
+    if (!saveNewAddress) {
+      return null;
+    }
 
-    const shouldDefault = addresses.length === 0;
-    const { data, error } = await supabase
+    const shouldDefault =
+      addresses.length === 0;
+
+    const {
+      data,
+      error,
+    } = await supabase
       .from("customer_addresses")
       .insert({
         user_id: userId,
-        label: addressLabel.trim() || "Other",
-        full_name: name.trim(),
+
+        label:
+          addressLabel.trim() ||
+          "Other",
+
+        full_name:
+          name.trim(),
+
         phone,
-        address_line: address.trim(),
-        city: city.trim(),
-        state: state.trim(),
+
+        address_line:
+          address.trim(),
+
+        city:
+          city.trim(),
+
+        state:
+          state.trim(),
+
         pincode,
-        is_default: shouldDefault,
+
+        is_default:
+          shouldDefault,
       })
       .select("id")
       .single();
 
-    if (error) throw error;
+    if (error) {
+      throw error;
+    }
 
     if (shouldDefault) {
-      const { error: defaultError } = await supabase.rpc(
+      const {
+        error: defaultError,
+      } = await supabase.rpc(
         "set_default_customer_address",
-        { p_address_id: data.id }
+        {
+          p_address_id:
+            data.id,
+        }
       );
-      if (defaultError) throw defaultError;
+
+      if (defaultError) {
+        throw defaultError;
+      }
     }
 
     return data.id as string;
   };
 
-  const handlePlaceOrder = async () => {
-    if (placingOrder) return;
+  // =====================================================
+  // PLACE ORDER / PAYMENT
+  // =====================================================
 
-    if (cart.length === 0) {
-      alert("Your cart is empty.");
-      router.push("/");
-      return;
-    }
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      router.replace("/login?next=/checkout");
-      return;
-    }
-
-    if (!name.trim()) {
-      alert("Please enter the recipient's full name.");
-      return;
-    }
-    if (!/^[6-9]\d{9}$/.test(phone)) {
-      alert("Please enter a valid 10-digit Indian mobile number.");
-      return;
-    }
-    if (!address.trim()) {
-      alert("Please enter the delivery address.");
-      return;
-    }
-    if (!city.trim()) {
-      alert("Please enter the city.");
-      return;
-    }
-    if (!state.trim()) {
-      alert("Please enter the state.");
-      return;
-    }
-    if (!/^\d{6}$/.test(pincode)) {
-      alert("Please enter a valid 6-digit pincode.");
-      return;
-    }
-
-    setPlacingOrder(true);
-
-    try {
-      // Keep the customer's chosen address available for future orders.
-      await saveCurrentAddress(user.id);
-
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-
-      if (!accessToken) {
-        router.replace("/login?next=/checkout");
+  const handlePlaceOrder =
+    async () => {
+      if (placingOrder) {
         return;
       }
 
-      // The server recalculates the amount from the database. Never trust a
-      // price coming from localStorage or the browser for the payment amount.
-      const createResponse = await fetch("/api/razorpay/create-order", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ items: cart }),
-      });
+      if (cart.length === 0) {
+        alert(
+          "Your cart is empty."
+        );
 
-      const createData = (await createResponse.json()) as {
-        error?: string;
-        razorpayOrderId?: string;
-        amount?: number;
-        currency?: string;
-        keyId?: string;
-        total?: number;
-      };
-
-      if (!createResponse.ok || !createData.razorpayOrderId || !createData.keyId || !createData.amount) {
-        throw new Error(createData.error || "Could not start the payment.");
+        router.push("/");
+        return;
       }
 
-      await loadRazorpayScript();
+      const {
+        data: { user },
+      } =
+        await supabase.auth.getUser();
 
-      if (!window.Razorpay) {
-        throw new Error("Razorpay checkout could not be initialized.");
+      if (!user) {
+        router.replace(
+          "/login?next=/checkout"
+        );
+
+        return;
       }
 
-      const razorpay = new window.Razorpay({
-        key: createData.keyId,
-        amount: createData.amount,
-        currency: createData.currency || "INR",
-        name: "Devbhoomi Designs",
-        description: "Devbhoomi Designs order payment",
-        order_id: createData.razorpayOrderId,
-        prefill: {
-          name: name.trim(),
-          email: user.email || "",
-          contact: phone,
-        },
-        notes: {
-          customer_name: name.trim(),
-          city: city.trim(),
-        },
-        // UPI only for this first payment rollout.
-        
-        theme: { color: "#a51c24" },
-        handler: async (response) => {
-          try {
-            const verifyResponse = await fetch("/api/razorpay/verify", {
+      // ---------------------------------------------
+      // VALIDATION
+      // ---------------------------------------------
+
+      if (!name.trim()) {
+        alert(
+          "Please enter the recipient's full name."
+        );
+        return;
+      }
+
+      if (
+        !/^[6-9]\d{9}$/.test(
+          phone
+        )
+      ) {
+        alert(
+          "Please enter a valid 10-digit Indian mobile number."
+        );
+        return;
+      }
+
+      if (!address.trim()) {
+        alert(
+          "Please enter the delivery address."
+        );
+        return;
+      }
+
+      if (!city.trim()) {
+        alert(
+          "Please enter the city."
+        );
+        return;
+      }
+
+      if (!state.trim()) {
+        alert(
+          "Please enter the state."
+        );
+        return;
+      }
+
+      if (
+        !/^\d{6}$/.test(
+          pincode
+        )
+      ) {
+        alert(
+          "Please enter a valid 6-digit pincode."
+        );
+        return;
+      }
+
+      setPlacingOrder(true);
+
+      try {
+        // -------------------------------------------
+        // SAVE CUSTOMER ADDRESS
+        // -------------------------------------------
+
+        await saveCurrentAddress(
+          user.id
+        );
+
+        // -------------------------------------------
+        // GET SUPABASE ACCESS TOKEN
+        // -------------------------------------------
+
+        const {
+          data: sessionData,
+        } =
+          await supabase.auth.getSession();
+
+        const accessToken =
+          sessionData.session
+            ?.access_token;
+
+        if (!accessToken) {
+          router.replace(
+            "/login?next=/checkout"
+          );
+          return;
+        }
+
+        // -------------------------------------------
+        // CREATE PENDING ORDER
+        // -------------------------------------------
+        //
+        // The server recalculates the total from the
+        // database and creates our internal order
+        // BEFORE Razorpay payment begins.
+        //
+        // This is what allows the webhook to find the
+        // correct Devbhoomi order later.
+        // -------------------------------------------
+
+        const createResponse =
+          await fetch(
+            "/api/razorpay/create-order",
+            {
               method: "POST",
+
               headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${accessToken}`,
+                "Content-Type":
+                  "application/json",
+
+                Authorization:
+                  `Bearer ${accessToken}`,
               },
+
               body: JSON.stringify({
-                ...response,
                 items: cart,
+
                 customer: {
-                  name: name.trim(),
+                  name:
+                    name.trim(),
+
                   phone,
-                  address: address.trim(),
-                  city: city.trim(),
-                  state: state.trim(),
+
+                  address:
+                    address.trim(),
+
+                  city:
+                    city.trim(),
+
+                  state:
+                    state.trim(),
+
                   pincode,
                 },
               }),
-            });
-
-            const verifyData = (await verifyResponse.json()) as {
-              error?: string;
-              orderId?: string;
-              total?: number;
-              status?: string;
-              paymentStatus?: string;
-            };
-
-            if (!verifyResponse.ok || !verifyData.orderId) {
-              throw new Error(verifyData.error || "Payment verification failed. Please contact support before trying again.");
             }
+          );
 
-            const finalTotal = Number(verifyData.total || createData.total || total);
-            const localOrder = {
-              orderId: verifyData.orderId,
-              customer: {
-                name: name.trim(),
+        const createData =
+          (await createResponse.json()) as {
+            error?: string;
+
+            success?: boolean;
+
+            orderId?: string;
+
+            razorpayOrderId?: string;
+
+            amount?: number;
+
+            currency?: string;
+
+            keyId?: string;
+
+            total?: number;
+          };
+
+        if (
+          !createResponse.ok ||
+          !createData.orderId ||
+          !createData.razorpayOrderId ||
+          !createData.keyId ||
+          !createData.amount
+        ) {
+          throw new Error(
+            createData.error ||
+              "Could not start the payment."
+          );
+        }
+
+        // -------------------------------------------
+        // LOAD RAZORPAY SCRIPT
+        // -------------------------------------------
+
+        await loadRazorpayScript();
+
+        if (!window.Razorpay) {
+          throw new Error(
+            "Razorpay checkout could not be initialized."
+          );
+        }
+
+        // -------------------------------------------
+        // OPEN RAZORPAY
+        // -------------------------------------------
+
+        const razorpay =
+          new window.Razorpay({
+            key:
+              createData.keyId,
+
+            amount:
+              createData.amount,
+
+            currency:
+              createData.currency ||
+              "INR",
+
+            name:
+              "Devbhoomi Designs",
+
+            description:
+              "Devbhoomi Designs order payment",
+
+            order_id:
+              createData.razorpayOrderId,
+
+            prefill: {
+              name:
+                name.trim(),
+
+              email:
+                user.email ||
+                "",
+
+              contact:
                 phone,
-                address: address.trim(),
-                city: city.trim(),
-                state: state.trim(),
-                pincode,
+            },
+
+            notes: {
+              customer_name:
+                name.trim(),
+
+              city:
+                city.trim(),
+
+              devbhoomi_order_id:
+                createData.orderId,
+            },
+
+            theme: {
+              color:
+                "#a51c24",
+            },
+
+            // ---------------------------------------
+            // PAYMENT SUCCESS HANDLER
+            // ---------------------------------------
+
+            handler:
+              async (
+                response
+              ) => {
+                try {
+                  const verifyResponse =
+                    await fetch(
+                      "/api/razorpay/verify",
+                      {
+                        method: "POST",
+
+                        headers: {
+                          "Content-Type":
+                            "application/json",
+
+                          Authorization:
+                            `Bearer ${accessToken}`,
+                        },
+
+                        body: JSON.stringify(
+                          {
+                            ...response,
+
+                            customer: {
+                              name:
+                                name.trim(),
+
+                              phone,
+
+                              address:
+                                address.trim(),
+
+                              city:
+                                city.trim(),
+
+                              state:
+                                state.trim(),
+
+                              pincode,
+                            },
+                          }
+                        ),
+                      }
+                    );
+
+                  const verifyData =
+                    (await verifyResponse.json()) as {
+                      success?: boolean;
+
+                      error?: string;
+
+                      orderId?: string;
+
+                      total?: number;
+
+                      status?: string;
+
+                      paymentStatus?: string;
+
+                      paymentMethod?: string;
+                    };
+
+                  if (
+                    !verifyResponse.ok ||
+                    !verifyData.orderId
+                  ) {
+                    throw new Error(
+                      verifyData.error ||
+                        "Payment verification failed. Please contact support before trying again."
+                    );
+                  }
+
+                  const finalTotal =
+                    Number(
+                      verifyData.total ??
+                        createData.total ??
+                        total
+                    );
+
+                  // ---------------------------------
+                  // STORE LAST ORDER LOCALLY
+                  // ---------------------------------
+
+                  const localOrder =
+                    {
+                      orderId:
+                        verifyData.orderId,
+
+                      customer: {
+                        name:
+                          name.trim(),
+
+                        phone,
+
+                        address:
+                          address.trim(),
+
+                        city:
+                          city.trim(),
+
+                        state:
+                          state.trim(),
+
+                        pincode,
+                      },
+
+                      items: cart,
+
+                      subtotal:
+                        finalTotal,
+
+                      delivery: 0,
+
+                      total:
+                        finalTotal,
+
+                      status:
+                        verifyData.status ||
+                        "New Order",
+
+                      paymentStatus:
+                        verifyData.paymentStatus ||
+                        "Paid",
+
+                      paymentMethod:
+                        verifyData.paymentMethod ||
+                        "Razorpay",
+
+                      razorpayOrderId:
+                        response.razorpay_order_id,
+
+                      razorpayPaymentId:
+                        response.razorpay_payment_id,
+
+                      createdAt:
+                        new Date().toISOString(),
+                    };
+
+                  localStorage.setItem(
+                    "devbhoomi-last-order",
+                    JSON.stringify(
+                      localOrder
+                    )
+                  );
+
+                  // ---------------------------------
+                  // CLEAR CART
+                  // ---------------------------------
+
+                  localStorage.removeItem(
+                    "devbhoomi-cart"
+                  );
+
+                  // ---------------------------------
+                  // SUCCESS PAGE
+                  // ---------------------------------
+
+                  router.push(
+                    "/order-success"
+                  );
+                } catch (error) {
+                  console.error(
+                    "Payment verification error:",
+                    error
+                  );
+
+                  alert(
+                    error instanceof Error
+                      ? error.message
+                      : "Payment verification failed. Please contact support before trying again."
+                  );
+                } finally {
+                  setPlacingOrder(
+                    false
+                  );
+                }
               },
-              items: cart,
-              subtotal: finalTotal,
-              delivery: 0,
-              total: finalTotal,
-              status: verifyData.status || "New Order",
-              paymentStatus: verifyData.paymentStatus || "Paid",
-              createdAt: new Date().toISOString(),
-            };
 
-            localStorage.setItem("devbhoomi-last-order", JSON.stringify(localOrder));
-            localStorage.removeItem("devbhoomi-cart");
-            router.push("/order-success");
-          } catch (error) {
-            console.error("Payment verification error:", error);
-            alert(
-              error instanceof Error
-                ? error.message
-                : "Payment verification failed. Please contact support before trying again."
+            // ---------------------------------------
+            // RAZORPAY CLOSED
+            // ---------------------------------------
+
+            modal: {
+              ondismiss: () => {
+                setPlacingOrder(
+                  false
+                );
+              },
+            },
+          });
+
+        // -------------------------------------------
+        // PAYMENT FAILED EVENT
+        // -------------------------------------------
+
+        razorpay.on(
+          "payment.failed",
+          () => {
+            setPlacingOrder(
+              false
             );
-          } finally {
-            setPlacingOrder(false);
+
+            alert(
+              "Payment failed or was cancelled. Your cart is still saved, so you can try again."
+            );
           }
-        },
-        modal: {
-          ondismiss: () => {
-            setPlacingOrder(false);
-          },
-        },
-      });
+        );
 
-      razorpay.on("payment.failed", () => {
+        // -------------------------------------------
+        // OPEN PAYMENT WINDOW
+        // -------------------------------------------
+
+        razorpay.open();
+      } catch (error) {
+        console.error(
+          "Payment start error:",
+          error
+        );
+
+        alert(
+          error instanceof Error
+            ? error.message
+            : "Could not start the payment. Please try again."
+        );
+
         setPlacingOrder(false);
-        alert("Payment failed or was cancelled. Your cart is still saved, so you can try again.");
-      });
+      }
+    };
 
-      razorpay.open();
-    } catch (error) {
-      console.error("Payment start error:", error);
-      alert(
-        error instanceof Error
-          ? error.message
-          : "Could not start the payment. Please try again."
-      );
-      setPlacingOrder(false);
-    }
-  };
+  // =====================================================
+  // LOADING
+  // =====================================================
 
-  if (!cartLoaded || loadingProfile || !addressesLoaded) {
+  if (
+    !cartLoaded ||
+    loadingProfile ||
+    !addressesLoaded
+  ) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#fffaf4] text-[#321817]">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#ead8c7] border-t-[#a51c24]" />
-          <p className="mt-4 font-bold">Loading checkout...</p>
+
+          <p className="mt-4 font-bold">
+            Loading checkout...
+          </p>
         </div>
       </main>
     );
   }
 
+  // =====================================================
+  // PAGE
+  // =====================================================
+
   return (
     <main className="min-h-screen bg-[#fffaf4] px-4 py-8 text-[#321817] sm:px-5 sm:py-10">
       <div className="mx-auto max-w-6xl">
+
+        {/* HEADER */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+
           <div>
             <button
               type="button"
-              onClick={() => router.push("/?openCart=1")}
+              onClick={() =>
+                router.push(
+                  "/?openCart=1"
+                )
+              }
               className="mb-4 text-sm font-bold text-[#a51c24]"
             >
               ← Back to Cart
             </button>
-            <h1 className="text-4xl font-black">Checkout</h1>
+
+            <h1 className="text-4xl font-black">
+              Checkout
+            </h1>
+
             <p className="mt-2 text-sm text-[#795c52]">
               Choose a saved address or add a new one for this order.
             </p>
@@ -563,321 +1192,700 @@ export default function CheckoutPage() {
             className="inline-flex items-center gap-2 self-start rounded-full border border-[#dcc8b5] bg-white px-4 py-2.5 text-sm font-black text-[#a51c24] sm:self-auto"
           >
             <MapPin size={16} />
+
             Manage Addresses
           </Link>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1.08fr_0.92fr]">
+
+          {/* =================================================
+              DELIVERY ADDRESS
+          ================================================= */}
+
           <section className="rounded-3xl border border-[#ead8c7] bg-white p-5 shadow-sm sm:p-6">
+
             <div className="flex items-center justify-between gap-3">
+
               <div>
-                <h2 className="text-2xl font-black">Delivery Address</h2>
+                <h2 className="text-2xl font-black">
+                  Delivery Address
+                </h2>
+
                 <p className="mt-1 text-sm text-[#795c52]">
                   Your saved addresses are linked to your account.
                 </p>
               </div>
+
               <button
                 type="button"
-                onClick={clearForNewAddress}
+                onClick={
+                  clearForNewAddress
+                }
                 className="inline-flex items-center gap-1 rounded-full border border-[#a51c24] px-4 py-2 text-xs font-black text-[#a51c24]"
               >
-                <Plus size={15} /> New
+                <Plus size={15} />
+
+                New
               </button>
             </div>
 
+            {/* SAVED ADDRESSES */}
+
             {addresses.length > 0 && (
               <div className="mt-6 space-y-3">
-                {addresses.map((savedAddress) => {
-                  const selected = savedAddress.id === selectedAddressId;
-                  return (
-                    <button
-                      key={savedAddress.id}
-                      type="button"
-                      onClick={() => applyAddress(savedAddress)}
-                      className={`w-full rounded-2xl border p-4 text-left transition ${
-                        selected
-                          ? "border-[#a51c24] bg-[#fff6f0]"
-                          : "border-[#ead8c7] bg-[#fffaf4] hover:border-[#caa997]"
-                      }`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <span
-                          className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
-                            selected
-                              ? "border-[#a51c24] bg-[#a51c24] text-white"
-                              : "border-[#cdb2a2] bg-white text-transparent"
-                          }`}
-                        >
-                          <Check size={14} />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-[#ffd99c] px-3 py-1 text-[11px] font-black text-[#571719]">
-                              {savedAddress.label}
-                            </span>
-                            {savedAddress.is_default && (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-black text-[#a51c24]">
-                                <Star size={12} fill="currentColor" /> Default
+
+                {addresses.map(
+                  (
+                    savedAddress
+                  ) => {
+                    const selected =
+                      savedAddress.id ===
+                      selectedAddressId;
+
+                    return (
+                      <button
+                        key={
+                          savedAddress.id
+                        }
+                        type="button"
+                        onClick={() =>
+                          applyAddress(
+                            savedAddress
+                          )
+                        }
+                        className={`w-full rounded-2xl border p-4 text-left transition ${
+                          selected
+                            ? "border-[#a51c24] bg-[#fff6f0]"
+                            : "border-[#ead8c7] bg-[#fffaf4] hover:border-[#caa997]"
+                        }`}
+                      >
+
+                        <div className="flex items-start gap-3">
+
+                          {/* CHECK */}
+
+                          <span
+                            className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border ${
+                              selected
+                                ? "border-[#a51c24] bg-[#a51c24] text-white"
+                                : "border-[#cdb2a2] bg-white text-transparent"
+                            }`}
+                          >
+                            <Check size={14} />
+                          </span>
+
+                          <div className="min-w-0 flex-1">
+
+                            <div className="flex flex-wrap items-center gap-2">
+
+                              <span className="rounded-full bg-[#ffd99c] px-3 py-1 text-[11px] font-black text-[#571719]">
+                                {
+                                  savedAddress.label
+                                }
                               </span>
-                            )}
+
+                              {savedAddress.is_default && (
+                                <span className="inline-flex items-center gap-1 text-[11px] font-black text-[#a51c24]">
+                                  <Star
+                                    size={12}
+                                    fill="currentColor"
+                                  />
+
+                                  Default
+                                </span>
+                              )}
+
+                            </div>
+
+                            <p className="mt-2 font-black">
+                              {
+                                savedAddress.full_name
+                              }
+                            </p>
+
+                            <p className="mt-1 text-sm text-[#795c52]">
+                              {
+                                savedAddress.phone
+                              }
+                            </p>
+
+                            <p className="mt-2 text-sm leading-6 text-[#4e312c]">
+                              {
+                                savedAddress.address_line
+                              }
+                              ,{" "}
+                              {
+                                savedAddress.city
+                              }
+                              ,{" "}
+                              {
+                                savedAddress.state
+                              }{" "}
+                              -{" "}
+                              {
+                                savedAddress.pincode
+                              }
+                            </p>
+
                           </div>
-                          <p className="mt-2 font-black">{savedAddress.full_name}</p>
-                          <p className="mt-1 text-sm text-[#795c52]">
-                            {savedAddress.phone}
-                          </p>
-                          <p className="mt-2 text-sm leading-6 text-[#4e312c]">
-                            {savedAddress.address_line}, {savedAddress.city}, {savedAddress.state} - {savedAddress.pincode}
-                          </p>
+
                         </div>
-                      </div>
-                    </button>
-                  );
-                })}
+
+                      </button>
+                    );
+                  }
+                )}
+
               </div>
             )}
 
+            {/* NEW ADDRESS FORM */}
+
             {showNewAddressForm && (
               <div className="mt-6 rounded-3xl border border-[#ead8c7] bg-[#fffaf4] p-5 sm:p-6">
+
                 <div className="flex items-start justify-between gap-3">
+
                   <div>
+
                     <h3 className="text-lg font-black">
-                      {selectedAddressId ? "Edit Selected Address" : "New Delivery Address"}
+                      {selectedAddressId
+                        ? "Edit Selected Address"
+                        : "New Delivery Address"}
                     </h3>
+
                     <p className="mt-1 text-xs text-[#795c52]">
                       Save a different address here for another person or location.
                     </p>
+
                   </div>
-                  {addresses.length > 0 && !selectedAddressId && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const fallback = addresses.find((item) => item.is_default) ?? addresses[0];
-                        if (fallback) applyAddress(fallback);
-                      }}
-                      className="text-xs font-black text-[#a51c24]"
-                    >
-                      Use Saved
-                    </button>
-                  )}
+
+                  {addresses.length > 0 &&
+                    !selectedAddressId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const fallback =
+                            addresses.find(
+                              (item) =>
+                                item.is_default
+                            ) ??
+                            addresses[0];
+
+                          if (
+                            fallback
+                          ) {
+                            applyAddress(
+                              fallback
+                            );
+                          }
+                        }}
+                        className="text-xs font-black text-[#a51c24]"
+                      >
+                        Use Saved
+                      </button>
+                    )}
+
                 </div>
 
                 <div className="mt-5 grid gap-5 sm:grid-cols-2">
+
+                  {/* LABEL */}
+
                   <div className="sm:col-span-2">
-                    <label className="text-sm font-bold">Address Label</label>
+
+                    <label className="text-sm font-bold">
+                      Address Label
+                    </label>
+
                     <div className="mt-2 flex flex-wrap gap-2">
-                      {["Home", "Work", "Family", "Other"].map((label) => (
-                        <button
-                          key={label}
-                          type="button"
-                          onClick={() => setAddressLabel(label)}
-                          className={`rounded-full px-4 py-2 text-xs font-bold ${
-                            addressLabel === label
-                              ? "bg-[#a51c24] text-white"
-                              : "border border-[#dcc8b5] bg-white text-[#321817]"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
+
+                      {[
+                        "Home",
+                        "Work",
+                        "Family",
+                        "Other",
+                      ].map(
+                        (label) => (
+                          <button
+                            key={label}
+                            type="button"
+                            onClick={() =>
+                              setAddressLabel(
+                                label
+                              )
+                            }
+                            className={`rounded-full px-4 py-2 text-xs font-bold ${
+                              addressLabel ===
+                              label
+                                ? "bg-[#a51c24] text-white"
+                                : "border border-[#dcc8b5] bg-white text-[#321817]"
+                            }`}
+                          >
+                            {label}
+                          </button>
+                        )
+                      )}
+
                     </div>
                   </div>
 
+                  {/* NAME */}
+
                   <div>
-                    <label className="text-sm font-bold">Recipient Name</label>
+
+                    <label className="text-sm font-bold">
+                      Recipient Name
+                    </label>
+
                     <input
                       value={name}
-                      onChange={(e) => setName(e.target.value)}
+                      onChange={(e) =>
+                        setName(
+                          e.target
+                            .value
+                        )
+                      }
                       placeholder="Full name"
                       className="mt-2 w-full rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
                     />
+
                   </div>
 
+                  {/* PHONE */}
+
                   <div>
-                    <label className="text-sm font-bold">Mobile Number</label>
+
+                    <label className="text-sm font-bold">
+                      Mobile Number
+                    </label>
+
                     <input
                       type="tel"
                       value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      onChange={(e) =>
+                        setPhone(
+                          e.target.value
+                            .replace(
+                              /\D/g,
+                              ""
+                            )
+                            .slice(
+                              0,
+                              10
+                            )
+                        )
+                      }
                       placeholder="10-digit mobile number"
                       maxLength={10}
                       className="mt-2 w-full rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
                     />
+
                   </div>
 
+                  {/* ADDRESS */}
+
                   <div className="sm:col-span-2">
-                    <label className="text-sm font-bold">Address</label>
+
+                    <label className="text-sm font-bold">
+                      Address
+                    </label>
+
                     <textarea
                       value={address}
-                      onChange={(e) => setAddress(e.target.value)}
+                      onChange={(e) =>
+                        setAddress(
+                          e.target
+                            .value
+                        )
+                      }
                       placeholder="House no., street, area, landmark"
                       rows={4}
                       className="mt-2 w-full resize-none rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
                     />
+
                   </div>
 
+                  {/* CITY */}
+
                   <div>
-                    <label className="text-sm font-bold">City</label>
+
+                    <label className="text-sm font-bold">
+                      City
+                    </label>
+
                     <input
                       value={city}
-                      onChange={(e) => setCity(e.target.value)}
+                      onChange={(e) =>
+                        setCity(
+                          e.target
+                            .value
+                        )
+                      }
                       placeholder="City"
                       className="mt-2 w-full rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
                     />
+
                   </div>
 
+                  {/* STATE */}
+
                   <div>
-                    <label className="text-sm font-bold">State</label>
+
+                    <label className="text-sm font-bold">
+                      State
+                    </label>
+
                     <input
                       value={state}
-                      onChange={(e) => setState(e.target.value)}
+                      onChange={(e) =>
+                        setState(
+                          e.target
+                            .value
+                        )
+                      }
                       placeholder="State"
                       className="mt-2 w-full rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
                     />
+
                   </div>
 
+                  {/* PINCODE */}
+
                   <div>
-                    <label className="text-sm font-bold">Pincode</label>
+
+                    <label className="text-sm font-bold">
+                      Pincode
+                    </label>
+
                     <input
                       value={pincode}
-                      onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      onChange={(e) =>
+                        setPincode(
+                          e.target.value
+                            .replace(
+                              /\D/g,
+                              ""
+                            )
+                            .slice(
+                              0,
+                              6
+                            )
+                        )
+                      }
                       placeholder="110001"
                       maxLength={6}
                       className="mt-2 w-full rounded-xl border border-[#dcc8b5] bg-white px-4 py-3 outline-none focus:border-[#a51c24]"
                     />
+
                   </div>
+
+                  {/* SAVE ADDRESS */}
 
                   {!selectedAddressId && (
                     <label className="flex items-center gap-3 self-end rounded-2xl border border-[#ead8c7] bg-white p-4">
+
                       <input
                         type="checkbox"
-                        checked={saveNewAddress}
-                        onChange={(e) => setSaveNewAddress(e.target.checked)}
+                        checked={
+                          saveNewAddress
+                        }
+                        onChange={(e) =>
+                          setSaveNewAddress(
+                            e.target
+                              .checked
+                          )
+                        }
                         className="h-5 w-5"
                       />
+
                       <span className="text-sm font-bold">
                         Save this address to My Profile
                       </span>
+
                     </label>
                   )}
+
                 </div>
+
               </div>
             )}
+
           </section>
 
+          {/* =================================================
+              ORDER SUMMARY
+          ================================================= */}
+
           <section className="h-fit rounded-3xl border border-[#ead8c7] bg-white p-5 shadow-sm sm:p-6">
-            <h2 className="text-2xl font-black">Order Summary</h2>
+
+            <h2 className="text-2xl font-black">
+              Order Summary
+            </h2>
 
             {cart.length === 0 ? (
               <div className="mt-6 rounded-2xl bg-[#fffaf4] p-8 text-center">
-                <p className="font-bold">Your cart is empty</p>
+
+                <p className="font-bold">
+                  Your cart is empty
+                </p>
+
                 <button
                   type="button"
-                  onClick={() => router.push("/")}
+                  onClick={() =>
+                    router.push(
+                      "/"
+                    )
+                  }
                   className="mt-3 font-bold text-[#a51c24]"
                 >
                   Continue Shopping
                 </button>
+
               </div>
             ) : (
               <>
+
+                {/* CART ITEMS */}
+
                 <div className="mt-6 space-y-3">
-                  {cart.map((item, index) => {
-                    const product = getProductInfo(item.id);
-                    const unitPrice = getItemUnitPrice(item);
-                    if (!product) return null;
-                    return (
-                      <div
-                        key={item.cartKey ?? `${item.id}-${index}`}
-                        className="rounded-2xl border border-[#ead8c7] bg-[#fffaf4] p-4"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-[#ead8c7] bg-white">
-                            {getProductImage(product) ? (
-                              <img
-                                src={getProductImage(product)}
-                                alt={product.name}
-                                className="h-full w-full object-contain"
-                                loading="eager"
-                                onError={(event) => {
-                                  event.currentTarget.style.display = "none";
-                                }}
-                              />
-                            ) : (
-                              <div className="flex h-full w-full items-center justify-center text-2xl text-[#a51c24]">
-                                ✦
-                              </div>
-                            )}
+
+                  {cart.map(
+                    (
+                      item,
+                      index
+                    ) => {
+                      const product =
+                        getProductInfo(
+                          item.id
+                        );
+
+                      const unitPrice =
+                        getItemUnitPrice(
+                          item
+                        );
+
+                      if (!product) {
+                        return null;
+                      }
+
+                      return (
+                        <div
+                          key={
+                            item.cartKey ??
+                            `${item.id}-${index}`
+                          }
+                          className="rounded-2xl border border-[#ead8c7] bg-[#fffaf4] p-4"
+                        >
+
+                          <div className="flex items-start gap-3">
+
+                            {/* IMAGE */}
+
+                            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-[#ead8c7] bg-white">
+
+                              {getProductImage(
+                                product
+                              ) ? (
+                                <img
+                                  src={getProductImage(
+                                    product
+                                  )}
+                                  alt={
+                                    product.name
+                                  }
+                                  className="h-full w-full object-contain"
+                                  loading="eager"
+                                  onError={(
+                                    event
+                                  ) => {
+                                    event.currentTarget.style.display =
+                                      "none";
+                                  }}
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-2xl text-[#a51c24]">
+                                  ✦
+                                </div>
+                              )}
+
+                            </div>
+
+                            {/* PRODUCT INFO */}
+
+                            <div className="min-w-0 flex-1">
+
+                              <p className="font-bold">
+                                {
+                                  product.name
+                                }
+                              </p>
+
+                              {item.variantName && (
+                                <p className="mt-1 text-xs font-bold text-[#a51c24]">
+                                  Variant:{" "}
+                                  {
+                                    item.variantName
+                                  }
+                                </p>
+                              )}
+
+                              {item.customName && (
+                                <p className="mt-1 text-xs text-[#795c52]">
+                                  Custom name:{" "}
+                                  {
+                                    item.customName
+                                  }
+                                </p>
+                              )}
+
+                              {item.customSize && (
+                                <p className="text-xs text-[#795c52]">
+                                  Size:{" "}
+                                  {
+                                    item.customSize
+                                  }
+                                </p>
+                              )}
+
+                              {item.instructions && (
+                                <p className="text-xs text-[#795c52]">
+                                  Instructions:{" "}
+                                  {
+                                    item.instructions
+                                  }
+                                </p>
+                              )}
+
+                              <p className="mt-2 text-sm text-[#795c52]">
+                                ₹
+                                {unitPrice.toLocaleString(
+                                  "en-IN"
+                                )}{" "}
+                                ×{" "}
+                                {
+                                  item.quantity
+                                }
+                              </p>
+
+                              <p className="mt-2 font-black">
+                                ₹
+                                {(
+                                  unitPrice *
+                                  item.quantity
+                                ).toLocaleString(
+                                  "en-IN"
+                                )}
+                              </p>
+
+                            </div>
+
                           </div>
 
-                          <div className="min-w-0 flex-1">
-                            <p className="font-bold">{product.name}</p>
-                            {item.variantName && (
-                              <p className="mt-1 text-xs font-bold text-[#a51c24]">
-                                Variant: {item.variantName}
-                              </p>
-                            )}
-                            {item.customName && (
-                              <p className="mt-1 text-xs text-[#795c52]">
-                                Custom name: {item.customName}
-                              </p>
-                            )}
-                            {item.customSize && (
-                              <p className="text-xs text-[#795c52]">
-                                Size: {item.customSize}
-                              </p>
-                            )}
-                            {item.instructions && (
-                              <p className="text-xs text-[#795c52]">
-                                Instructions: {item.instructions}
-                              </p>
-                            )}
-                            <p className="mt-2 text-sm text-[#795c52]">
-                              ₹{unitPrice.toLocaleString("en-IN")} × {item.quantity}
-                            </p>
-                            <p className="mt-2 font-black">
-                              ₹{(unitPrice * item.quantity).toLocaleString("en-IN")}
-                            </p>
-                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    }
+                  )}
+
                 </div>
+
+                {/* TOTAL */}
 
                 <div className="mt-6 space-y-4 border-t border-[#ead8c7] pt-5">
+
                   <div className="flex justify-between">
-                    <span className="text-[#795c52]">Items</span>
-                    <span className="font-bold">{totalItems}</span>
+
+                    <span className="text-[#795c52]">
+                      Items
+                    </span>
+
+                    <span className="font-bold">
+                      {totalItems}
+                    </span>
+
                   </div>
+
                   <div className="flex justify-between">
-                    <span className="text-[#795c52]">Subtotal</span>
-                    <span className="font-bold">₹{subtotal.toLocaleString("en-IN")}</span>
+
+                    <span className="text-[#795c52]">
+                      Subtotal
+                    </span>
+
+                    <span className="font-bold">
+                      ₹
+                      {subtotal.toLocaleString(
+                        "en-IN"
+                      )}
+                    </span>
+
                   </div>
+
                   <div className="flex justify-between">
-                    <span className="text-[#795c52]">Delivery</span>
-                    <span className="font-bold text-green-600">FREE</span>
+
+                    <span className="text-[#795c52]">
+                      Delivery
+                    </span>
+
+                    <span className="font-bold text-green-600">
+                      FREE
+                    </span>
+
                   </div>
+
                   <div className="flex justify-between border-t border-[#ead8c7] pt-5 text-xl">
-                    <span className="font-black">Total</span>
-                    <span className="font-black text-[#a51c24]">₹{total.toLocaleString("en-IN")}</span>
+
+                    <span className="font-black">
+                      Total
+                    </span>
+
+                    <span className="font-black text-[#a51c24]">
+                      ₹
+                      {total.toLocaleString(
+                        "en-IN"
+                      )}
+                    </span>
+
                   </div>
+
                 </div>
+
+                {/* PAY BUTTON */}
 
                 <button
                   type="button"
-                  onClick={handlePlaceOrder}
-                  disabled={placingOrder}
+                  onClick={
+                    handlePlaceOrder
+                  }
+                  disabled={
+                    placingOrder
+                  }
                   className="mt-8 w-full rounded-full bg-[#a51c24] px-6 py-4 font-bold text-white transition hover:bg-[#85161d] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {placingOrder ? "Opening UPI Payment..." : `Pay ₹${total.toLocaleString("en-IN")}`}
+                  {placingOrder
+                    ? "Opening Secure Payment..."
+                    : `Pay ₹${total.toLocaleString(
+                        "en-IN"
+                      )}`}
                 </button>
 
-                <p className="mt-4 text-center text-xs text-[#795c52]">
-                  Secure payment by Razorpay • UPI • Pan India delivery
-                </p>
+                <div className="mt-4 rounded-2xl border border-[#ead8c7] bg-[#fffaf4] p-4 text-center">
+
+                  <p className="text-sm font-bold text-[#321817]">
+                    🔒 Secure Payment
+                  </p>
+
+                  <p className="mt-1 text-xs text-[#795c52]">
+                    Secure payment powered by Razorpay
+                  </p>
+
+                </div>
+
               </>
             )}
+
           </section>
+
         </div>
       </div>
     </main>
