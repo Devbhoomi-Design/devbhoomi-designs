@@ -28,6 +28,10 @@ type Order = {
   total: number;
   status: string;
   created_at: string;
+
+  // PAYMENT DETAILS
+  payment_status?: string | null;
+  payment_method?: string | null;
 };
 
 type ProductInfo = {
@@ -66,6 +70,7 @@ const statuses = [
 
 export default function MyOrdersPage() {
   const router = useRouter();
+
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
@@ -89,19 +94,37 @@ export default function MyOrdersPage() {
 
     if (error) {
       console.error("My orders error:", error);
+
       startTransition(() => {
         setOrders([]);
         setLoading(false);
       });
+
       return;
     }
 
-    const normalizedOrders: Order[] = (data || []).map((row: Order) => ({
-      ...row,
-      items: Array.isArray(row.items) ? row.items : [],
-      total: Number(row.total || 0),
-      status: row.status || "New Order",
-    }));
+    const normalizedOrders: Order[] = (data || []).map(
+      (row: Order) => ({
+        ...row,
+
+        items: Array.isArray(row.items) ? row.items : [],
+
+        total: Number(row.total || 0),
+
+        status: row.status || "New Order",
+
+        // PAYMENT DETAILS
+        payment_status:
+          typeof row.payment_status === "string"
+            ? row.payment_status
+            : null,
+
+        payment_method:
+          typeof row.payment_method === "string"
+            ? row.payment_method
+            : null,
+      })
+    );
 
     const productIds = Array.from(
       new Set(
@@ -116,27 +139,40 @@ export default function MyOrdersPage() {
     let productMap: Record<number, ProductInfo> = {};
 
     if (productIds.length > 0) {
-      const { data: productRows, error: productError } = await supabase
+      const {
+        data: productRows,
+        error: productError,
+      } = await supabase
         .from("products")
         .select("id, name, image, image_urls")
         .in("id", productIds);
 
       if (productError) {
-        console.error("Could not load product details:", productError);
+        console.error(
+          "Could not load product details:",
+          productError
+        );
       } else {
         productMap = Object.fromEntries(
           (productRows || []).map((product) => [
             Number(product.id),
             {
-              name: String(product.name || `Product #${product.id}`),
+              name: String(
+                product.name || `Product #${product.id}`
+              ),
+
               image:
                 typeof product.image === "string"
                   ? product.image
                   : undefined,
+
               image_urls: Array.isArray(product.image_urls)
                 ? product.image_urls.filter(
-                    (url: unknown): url is string =>
-                      typeof url === "string" && url.trim().length > 0
+                    (
+                      url: unknown
+                    ): url is string =>
+                      typeof url === "string" &&
+                      url.trim().length > 0
                   )
                 : [],
             },
@@ -145,18 +181,26 @@ export default function MyOrdersPage() {
       }
     }
 
-    const ordersWithProductDetails = normalizedOrders.map((order) => ({
-      ...order,
-      items: order.items.map((item) => {
-        const product = productMap[Number(item.id)];
+    const ordersWithProductDetails =
+      normalizedOrders.map((order) => ({
+        ...order,
 
-        return {
-          ...item,
-          productName: product?.name || `Product #${item.id}`,
-          productImage: getOrderProductImage(product),
-        };
-      }),
-    }));
+        items: order.items.map((item) => {
+          const product =
+            productMap[Number(item.id)];
+
+          return {
+            ...item,
+
+            productName:
+              product?.name ||
+              `Product #${item.id}`,
+
+            productImage:
+              getOrderProductImage(product),
+          };
+        }),
+      }));
 
     startTransition(() => {
       setOrders(ordersWithProductDetails);
@@ -184,9 +228,10 @@ export default function MyOrdersPage() {
       )
       .subscribe();
 
-    const refreshTimer = window.setInterval(() => {
-      void loadOrders();
-    }, 15000);
+    const refreshTimer =
+      window.setInterval(() => {
+        void loadOrders();
+      }, 15000);
 
     return () => {
       window.clearTimeout(timer);
@@ -200,6 +245,7 @@ export default function MyOrdersPage() {
       <main className="flex min-h-screen items-center justify-center bg-[#fffaf4]">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-[#ead8c7] border-t-[#a51c24]" />
+
           <p className="mt-4 font-bold text-[#321817]">
             Loading your orders...
           </p>
@@ -211,15 +257,24 @@ export default function MyOrdersPage() {
   return (
     <main className="min-h-screen bg-[#fffaf4] px-4 py-8 text-[#321817] sm:px-5 sm:py-10">
       <div className="mx-auto max-w-5xl">
+
+        {/* HEADER */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <Link href="/" className="text-sm font-bold text-[#a51c24]">
+            <Link
+              href="/"
+              className="text-sm font-bold text-[#a51c24]"
+            >
               ← Home
             </Link>
+
             <h1 className="mt-3 text-3xl font-black sm:text-4xl">
               Your Orders
             </h1>
-            <p className="mt-2 break-all text-sm text-[#795c52]">{email}</p>
+
+            <p className="mt-2 break-all text-sm text-[#795c52]">
+              {email}
+            </p>
           </div>
 
           <Link
@@ -230,13 +285,21 @@ export default function MyOrdersPage() {
           </Link>
         </div>
 
+        {/* NO ORDERS */}
         {orders.length === 0 ? (
           <div className="mt-10 rounded-3xl border border-[#ead8c7] bg-white p-10 text-center shadow-sm">
-            <div className="text-6xl">📦</div>
-            <h2 className="mt-5 text-2xl font-black">No orders yet</h2>
+            <div className="text-6xl">
+              📦
+            </div>
+
+            <h2 className="mt-5 text-2xl font-black">
+              No orders yet
+            </h2>
+
             <p className="mt-2 text-[#795c52]">
               Your placed orders will appear here.
             </p>
+
             <Link
               href="/"
               className="mt-6 inline-block rounded-full bg-[#a51c24] px-6 py-3 font-bold text-white"
@@ -246,148 +309,331 @@ export default function MyOrdersPage() {
           </div>
         ) : (
           <div className="mt-8 space-y-6">
+
             {orders.map((order) => {
-              const statusIndex = statuses.indexOf(order.status);
-              const currentIndex = statusIndex >= 0 ? statusIndex : 0;
+
+              const statusIndex =
+                statuses.indexOf(order.status);
+
+              const currentIndex =
+                statusIndex >= 0
+                  ? statusIndex
+                  : 0;
+
+              const paymentStatus =
+                order.payment_status ||
+                "Pending";
+
+              const paymentMethod =
+                order.payment_method ||
+                "Razorpay";
+
+              const normalizedPayment =
+                paymentStatus.toLowerCase();
+
+              const isPaid =
+                normalizedPayment === "paid" ||
+                normalizedPayment === "captured" ||
+                normalizedPayment === "success" ||
+                normalizedPayment === "successful";
+
+              const isFailed =
+                normalizedPayment === "failed";
+
+              const paymentBadgeClass =
+                isPaid
+                  ? "bg-green-100 text-green-700 border-green-200"
+                  : isFailed
+                    ? "bg-red-100 text-red-700 border-red-200"
+                    : "bg-yellow-100 text-yellow-700 border-yellow-200";
 
               return (
                 <article
                   key={order.order_id}
                   className="rounded-3xl border border-[#ead8c7] bg-white p-4 shadow-sm sm:p-6"
                 >
+
+                  {/* ORDER HEADER */}
                   <div className="flex flex-col gap-3 border-b border-[#ead8c7] pb-5 sm:flex-row sm:items-center sm:justify-between">
+
                     <div className="min-w-0">
+
                       <p className="text-xs font-black uppercase tracking-wider text-[#a56c58]">
                         Order
                       </p>
+
                       <h2 className="mt-1 break-all font-black text-[#a51c24]">
                         {order.order_id}
                       </h2>
+
                       <p className="mt-1 text-sm text-[#795c52]">
-                        {new Date(order.created_at).toLocaleString("en-IN")}
+                        {new Date(
+                          order.created_at
+                        ).toLocaleString("en-IN")}
                       </p>
+
                     </div>
 
                     <div className="w-fit rounded-full bg-[#f7eadc] px-4 py-2 text-sm font-black text-[#a51c24]">
                       {order.status}
                     </div>
+
                   </div>
 
-                  <div className="mt-5 space-y-3">
-                    {order.items.map((item, index) => (
-                      <div
-                        key={`${item.id}-${item.cartKey || index}`}
-                        className="flex min-w-0 gap-3 rounded-2xl border border-[#f0e3d8] bg-[#fffaf4] p-3 sm:gap-4 sm:p-4"
-                      >
-                        <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-[#ead8c7] bg-white sm:h-24 sm:w-24">
-                          {item.productImage ? (
-                            <img
-                              src={item.productImage}
-                              alt={item.productName || `Product #${item.id}`}
-                              className="h-full w-full object-contain p-1"
-                              onError={(event) => {
-                                event.currentTarget.style.display = "none";
-                              }}
-                            />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-2xl">
-                              🎨
-                            </div>
-                          )}
-                        </div>
+                  {/* PAYMENT STATUS CARD */}
+                  <div className="mt-5 rounded-2xl border border-[#ead8c7] bg-[#fffaf4] p-4">
 
-                        <div className="min-w-0 flex-1">
-                          <p className="break-words font-black text-[#321817]">
-                            {item.productName || `Product #${item.id}`}
-                          </p>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
 
-                          {item.variantName && (
-                            <p className="mt-1 break-words text-sm font-semibold text-[#795c52]">
-                              <span className="font-bold">Variant:</span>{" "}
-                              {item.variantName}
-                            </p>
-                          )}
+                      <div className="flex items-center gap-3">
 
-                          {item.customName && (
-                            <p className="mt-1 break-words text-sm text-[#795c52]">
-                              <span className="font-bold">Custom:</span>{" "}
-                              {item.customName}
-                            </p>
-                          )}
-
-                          {item.customSize && (
-                            <p className="break-words text-sm text-[#795c52]">
-                              <span className="font-bold">Size:</span>{" "}
-                              {item.customSize}
-                            </p>
-                          )}
-
-                          {item.instructions && (
-                            <p className="break-words text-sm text-[#795c52]">
-                              <span className="font-bold">
-                                Special Instructions:
-                              </span>{" "}
-                              {item.instructions}
-                            </p>
-                          )}
-
-                          <p className="mt-2 text-sm font-bold text-[#795c52]">
-                            Qty: {item.quantity}
-                            {item.variantPrice != null
-                              ? ` • ₹${Number(item.variantPrice).toLocaleString(
-                                  "en-IN"
-                                )} each`
-                              : ""}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="mt-5 flex items-center justify-between border-t border-[#ead8c7] pt-5">
-                    <span className="font-black">Total</span>
-                    <span className="text-xl font-black text-[#a51c24]">
-                      ₹{order.total.toLocaleString("en-IN")}
-                    </span>
-                  </div>
-
-                  <div className="mt-6 overflow-hidden">
-                    <div className="flex justify-between gap-1">
-                      {statuses.map((status, index) => (
                         <div
-                          key={status}
-                          className="flex flex-1 flex-col items-center"
+                          className={`flex h-11 w-11 items-center justify-center rounded-full ${
+                            isPaid
+                              ? "bg-green-100"
+                              : isFailed
+                                ? "bg-red-100"
+                                : "bg-yellow-100"
+                          }`}
                         >
-                          <div
-                            className={`h-3 w-3 rounded-full ${
-                              index <= currentIndex
-                                ? "bg-[#a51c24]"
-                                : "bg-[#dcc8b5]"
-                            }`}
-                          />
-                          <span className="mt-2 hidden text-center text-[10px] font-bold sm:block">
-                            {status}
-                          </span>
+                          {isPaid
+                            ? "✓"
+                            : isFailed
+                              ? "!"
+                              : "₹"}
                         </div>
-                      ))}
+
+                        <div>
+                          <p className="text-xs font-black uppercase tracking-wider text-[#a56c58]">
+                            Payment Status
+                          </p>
+
+                          <p className="mt-1 font-black text-[#321817]">
+                            {isPaid
+                              ? "Payment Successful"
+                              : paymentStatus}
+                          </p>
+                        </div>
+
+                      </div>
+
+                      <div
+                        className={`w-fit rounded-full border px-4 py-2 text-sm font-black ${paymentBadgeClass}`}
+                      >
+                        {isPaid
+                          ? "✓ Paid"
+                          : paymentStatus}
+                      </div>
+
+                    </div>
+
+                    <div className="mt-4 grid gap-3 border-t border-[#ead8c7] pt-4 sm:grid-cols-2">
+
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">
+                          Payment Method
+                        </p>
+
+                        <p className="mt-1 font-bold text-[#321817]">
+                          💳 {paymentMethod}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-wider text-[#a56c58]">
+                          Amount Paid
+                        </p>
+
+                        <p className="mt-1 font-black text-[#a51c24]">
+                          ₹
+                          {order.total.toLocaleString(
+                            "en-IN"
+                          )}
+                        </p>
+                      </div>
+
+                    </div>
+
+                    {isPaid && (
+                      <div className="mt-4 rounded-xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+                        ✓ Your payment has been received successfully. Your order is being processed.
+                      </div>
+                    )}
+
+                    {isFailed && (
+                      <div className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-700">
+                        Payment failed. Please contact support if money was deducted from your account.
+                      </div>
+                    )}
+
+                  </div>
+
+                  {/* PRODUCTS */}
+                  <div className="mt-5 space-y-3">
+
+                    {order.items.map(
+                      (item, index) => (
+                        <div
+                          key={`${item.id}-${item.cartKey || index}`}
+                          className="flex min-w-0 gap-3 rounded-2xl border border-[#f0e3d8] bg-[#fffaf4] p-3 sm:gap-4 sm:p-4"
+                        >
+
+                          {/* IMAGE */}
+                          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl border border-[#ead8c7] bg-white sm:h-24 sm:w-24">
+
+                            {item.productImage ? (
+                              <img
+                                src={item.productImage}
+                                alt={
+                                  item.productName ||
+                                  `Product #${item.id}`
+                                }
+                                className="h-full w-full object-contain p-1"
+                                onError={(event) => {
+                                  event.currentTarget.style.display =
+                                    "none";
+                                }}
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-2xl">
+                                🎨
+                              </div>
+                            )}
+
+                          </div>
+
+                          {/* PRODUCT DETAILS */}
+                          <div className="min-w-0 flex-1">
+
+                            <p className="break-words font-black text-[#321817]">
+                              {item.productName ||
+                                `Product #${item.id}`}
+                            </p>
+
+                            {item.variantName && (
+                              <p className="mt-1 break-words text-sm font-semibold text-[#795c52]">
+                                <span className="font-bold">
+                                  Variant:
+                                </span>{" "}
+                                {item.variantName}
+                              </p>
+                            )}
+
+                            {item.customName && (
+                              <p className="mt-1 break-words text-sm text-[#795c52]">
+                                <span className="font-bold">
+                                  Custom:
+                                </span>{" "}
+                                {item.customName}
+                              </p>
+                            )}
+
+                            {item.customSize && (
+                              <p className="break-words text-sm text-[#795c52]">
+                                <span className="font-bold">
+                                  Size:
+                                </span>{" "}
+                                {item.customSize}
+                              </p>
+                            )}
+
+                            {item.instructions && (
+                              <p className="break-words text-sm text-[#795c52]">
+                                <span className="font-bold">
+                                  Special Instructions:
+                                </span>{" "}
+                                {item.instructions}
+                              </p>
+                            )}
+
+                            <p className="mt-2 text-sm font-bold text-[#795c52]">
+                              Qty: {item.quantity}
+
+                              {item.variantPrice != null
+                                ? ` • ₹${Number(
+                                    item.variantPrice
+                                  ).toLocaleString(
+                                    "en-IN"
+                                  )} each`
+                                : ""}
+                            </p>
+
+                          </div>
+
+                        </div>
+                      )
+                    )}
+
+                  </div>
+
+                  {/* TOTAL */}
+                  <div className="mt-5 flex items-center justify-between border-t border-[#ead8c7] pt-5">
+
+                    <span className="font-black">
+                      Total
+                    </span>
+
+                    <span className="text-xl font-black text-[#a51c24]">
+                      ₹
+                      {order.total.toLocaleString(
+                        "en-IN"
+                      )}
+                    </span>
+
+                  </div>
+
+                  {/* ORDER TRACKING */}
+                  <div className="mt-6 overflow-hidden">
+
+                    <div className="flex justify-between gap-1">
+
+                      {statuses.map(
+                        (status, index) => (
+                          <div
+                            key={status}
+                            className="flex flex-1 flex-col items-center"
+                          >
+
+                            <div
+                              className={`h-3 w-3 rounded-full ${
+                                index <= currentIndex
+                                  ? "bg-[#a51c24]"
+                                  : "bg-[#dcc8b5]"
+                              }`}
+                            />
+
+                            <span className="mt-2 hidden text-center text-[10px] font-bold sm:block">
+                              {status}
+                            </span>
+
+                          </div>
+                        )
+                      )}
+
                     </div>
 
                     <div className="mt-2 h-1 rounded-full bg-[#ead8c7]">
+
                       <div
                         className="h-1 rounded-full bg-[#a51c24] transition-all"
                         style={{
                           width: `${
-                            (currentIndex / (statuses.length - 1)) * 100
+                            (currentIndex /
+                              (statuses.length - 1)) *
+                            100
                           }%`,
                         }}
                       />
+
                     </div>
 
                     <p className="mt-3 text-center text-xs font-bold text-[#795c52] sm:hidden">
                       {order.status}
                     </p>
+
                   </div>
 
+                  {/* TRACK ORDER */}
                   <Link
                     href={`/track-order?orderId=${encodeURIComponent(
                       order.order_id
@@ -396,11 +642,14 @@ export default function MyOrdersPage() {
                   >
                     View & Track Order
                   </Link>
+
                 </article>
               );
             })}
+
           </div>
         )}
+
       </div>
     </main>
   );
